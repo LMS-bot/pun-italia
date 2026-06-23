@@ -78,6 +78,9 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .xlabels{display:flex;gap:3px;margin-top:4px}
   .xlabels div{flex:1;text-align:center;font-size:9px;color:var(--muted)}
   .hint{color:var(--muted);font-size:13px;margin-top:10px}
+  .trendpill{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700}
+  .trendpill.down{background:#e7f6ec;color:#15803d}
+  .trendpill.up{background:#fdeccd;color:#b45309}
   table{border-collapse:collapse;width:100%;margin-top:14px;font-size:13px}
   th,td{border:1px solid var(--line);padding:5px 8px;text-align:right}
   th:first-child,td:first-child{text-align:left}
@@ -117,6 +120,7 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
     <div class="tab active" data-view="day">📅 Giorno</div>
     <div class="tab" data-view="month">📊 Mese</div>
     <div class="tab" data-view="year">📈 Anno</div>
+    <div class="tab" data-view="forward">🔮 Forward</div>
   </div>
   <div class="nav"><button id="prev">‹</button><div class="label" id="navlabel"></div><button id="next">›</button></div>
   <div id="content"></div>
@@ -158,6 +162,7 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
 <script>
 const ELEC = /*__ELEC__*/;
 const GAS  = /*__GAS__*/;
+const FORWARD = /*__FWD__*/;
 // Per aggiungere i loghi delle certificazioni: CERTS=[{src:"iso9001.png",alt:"ISO 9001"}, ...]
 const CERTS = [];
 
@@ -203,9 +208,59 @@ function init(){
 }
 function render(){
   applyAccent(); setActive();
+  if(view==="forward"){renderForward();return;}
   const ks=keys();
   if(!ks.length){content.innerHTML=`<div class="card"><div class="empty-note">Nessun dato ${D().name} disponibile.</div></div>`;navlabel.textContent="—";return;}
   if(view==="day")renderDay();else if(view==="month")renderMonth();else renderYear();
+}
+// ---- Forward / Futures ----
+function fwdDom(){return domain==="elec"?"power":"gas";}
+function monthAdd(ym,n){let[y,m]=ym.split("-").map(Number);let idx=y*12+(m-1)+n;return `${Math.floor(idx/12)}-${String(idx%12+1).padStart(2,"0")}`;}
+function qOf(ym){let[y,m]=ym.split("-").map(Number);return `${y}-Q${Math.floor((m-1)/3)+1}`;}
+function ymLabel(ym){const[y,m]=ym.split("-");return MESI[+m-1].slice(0,3)+" "+y.slice(2);}
+function fwdCurve(F){
+  const M=F.months||{},Q=F.quarters||{},Y=F.years||{};
+  const mk=Object.keys(M).sort();let start=mk[0];
+  if(!start){const qk=Object.keys(Q).sort();if(!qk.length)return [];const[y,q]=qk[0].split("-Q");start=`${y}-${String((+q-1)*3+1).padStart(2,"0")}`;}
+  const out=[];
+  for(let i=0;i<24;i++){const ym=monthAdd(start,i);const y=ym.split("-")[0];
+    let p=(M[ym]!=null)?M[ym]:(Q[qOf(ym)]!=null)?Q[qOf(ym)]:(Y[y]!=null)?Y[y]:null;
+    if(p==null){if(i>0)break;else continue;}
+    out.push({ym,price:p});}
+  return out;
+}
+function renderForward(){
+  navlabel.textContent="Curva forward";
+  const F=(FORWARD||{})[fwdDom()];
+  const hasData=F&&((F.months&&Object.keys(F.months).length)||(F.quarters&&Object.keys(F.quarters).length));
+  if(!hasData){content.innerHTML=`<div class="card"><div class="empty-note">Curva forward non ancora disponibile.<br>Si popola al primo aggiornamento giornaliero (mercati a termine GME).</div></div>`;return;}
+  const curve=fwdCurve(F);const prices=curve.map(c=>c.price),labels=curve.map(c=>ymLabel(c.ym));
+  const front=prices[0],peak=Math.max(...prices),pI=prices.indexOf(peak);
+  const i12=Math.min(12,curve.length-1),m12=prices[i12];
+  const trend=front?((m12-front)/front*100):0;
+  const trendTxt=trend<=0?`Backwardation ↘ ${trend.toFixed(1)}%`:`Contango ↗ +${trend.toFixed(1)}%`;
+  const smc=domain==="gas"?`<div class="val" style="font-size:13px">≈ ${eur(front*SMC,4)} <small>€/Smc</small></div>`:"";
+  const qLabel=k=>{const[y,q]=k.split("-Q");return `Q${q} ${y}`;};
+  const sLabel=k=>k.replace("SS-","Estate ").replace("WS-","Inverno ");
+  const rows=(arr,fk)=>arr.map(([k,v])=>`<tr><td>${fk(k)}</td><td>${eur(v)} €/MWh</td></tr>`).join("");
+  const qs=Object.entries(F.quarters||{}).sort(),ys=Object.entries(F.years||{}).sort(),ss=Object.entries(F.seasons||{}).sort();
+  let tbl="";
+  if(qs.length)tbl+=`<tr><th colspan="2">Trimestri</th></tr>`+rows(qs,qLabel);
+  if(ss.length)tbl+=`<tr><th colspan="2">Stagioni</th></tr>`+rows(ss,sLabel);
+  if(ys.length)tbl+=`<tr><th colspan="2">Anni (Cal)</th></tr>`+rows(ys,k=>"Cal "+k);
+  content.innerHTML=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0">Curva forward — ${domain==="elec"?"Energia (baseload)":"Gas PSV"}</h3>
+      <span class="trendpill ${trend<=0?"down":"up"}">${trendTxt}</span></div>
+    <div class="stats">
+      <div class="stat"><div class="k">Front · ${labels[0]}</div><div class="val">${eur(front)} <small>€/MWh</small></div>${smc}</div>
+      <div class="stat"><div class="k">Picco · ${labels[pI]}</div><div class="val" style="color:#c0392b">${eur(peak)} <small>€/MWh</small></div></div>
+      <div class="stat"><div class="k">A 12 mesi · ${labels[i12]}</div><div class="val" style="color:var(--elec)">${eur(m12)} <small>€/MWh</small></div></div>
+    </div>
+    ${barChart(prices,labels,{xevery:2})}
+    <div class="hint">Il mercato si aspetta prezzi ${trend<=0?"in discesa":"in salita"}. Fonte: settlement (prezzo di controllo) GME ${domain==="elec"?"MTE":"MT-GAS"}, sessione ${F.as_of}. I mesi non quotati direttamente sono stimati dal trimestre/anno di riferimento.</div>
+    <table style="margin-top:14px"><tbody>${tbl}</tbody></table>
+  </div>`;
 }
 function barChart(values,labels,opts={}){
   const max=Math.max(...values,0),min=Math.min(...values,0),span=(max-min)||1;let bars="",xs="";
@@ -223,8 +278,10 @@ function statGas(label,mwh){return `<div class="stat"><div class="k">${label}</d
 
 function renderDay(){
   navlabel.textContent=`${MESI[cur.m]} ${cur.y}`;
-  const dv=D().dayVal; const ks=keys();
-  let mn=Infinity,mx=-Infinity; ks.forEach(k=>{const a=dv(k);mn=Math.min(mn,a);mx=Math.max(mx,a);});
+  const dv=D().dayVal;
+  // heatmap relativa al mese visualizzato (così le differenze del mese sono visibili)
+  const mk=monthKeys(cur.y,cur.m);
+  let mn=Infinity,mx=-Infinity; mk.forEach(k=>{const a=dv(k);mn=Math.min(mn,a);mx=Math.max(mx,a);});
   const nd=daysInMonth(cur.y,cur.m),fd=(new Date(cur.y,cur.m,1).getDay()+6)%7;let cells="";
   for(let i=0;i<fd;i++)cells+=`<div class="cell empty"></div>`;
   for(let d=1;d<=nd;d++){const key=fmt(cur.y,cur.m,d);
@@ -277,7 +334,7 @@ function renderYear(){
     <div class="stats">${sb("Media anno",yAvg)}${sb("Mese più basso",mn)}${sb("Mese più alto",mx)}</div>
     ${barChart(vals,labels,{})}</div>`;
 }
-function step(dir){if(view==="year")cur.y+=dir;else{cur.m+=dir;if(cur.m<0){cur.m=11;cur.y--;}if(cur.m>11){cur.m=0;cur.y++;}}render();}
+function step(dir){if(view==="forward")return;if(view==="year")cur.y+=dir;else{cur.m+=dir;if(cur.m<0){cur.m=11;cur.y--;}if(cur.m>11){cur.m=0;cur.y++;}}render();}
 function renderCerts(){
   if(!CERTS.length)return;
   document.getElementById("certs").style.display="flex";

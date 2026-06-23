@@ -54,9 +54,17 @@ EL_SERVICE = BASE + "/DesktopModules/GmeEsitiPrezziME/API/item/GetMEPrezzi"
 GAS_PAGE = BASE + "/it-it/Home/Esiti/Gas/MGP-GAS/Esiti/NegoziazioneContinua"
 GAS_SERVICE = BASE + "/DesktopModules/GmeEsitiMGAS/API/item/GetGasEsitiMGAS"
 
+# --- Forward / Futures (prezzi di controllo = settlement) ---
+# Power: MTE (Mercato a Termine Energia). Gas: MT-GAS (Mercato a Termine Gas).
+MTE_PAGE = BASE + "/it-it/Home/Esiti/Elettricita/MTE/Esiti/Prezzi"
+MTE_SERVICE = BASE + "/DesktopModules/GmeEsitiMTE/API/GmeEsitiMTE/GetMEESitiMTE"
+MTGAS_PAGE = BASE + "/it-it/Home/Esiti/Gas/MT-GAS/Esiti/MT-GAS"
+MTGAS_SERVICE = BASE + "/DesktopModules/GmeEsitiMGAS/API/item/GetGasEsitiMGAS"
+
 DATE_FMT = "%Y%m%d"
 DEFAULT_CSV = "pun_storico.csv"
 GAS_CSV = "gas_storico.csv"
+FORWARD_JSON = "forward.json"
 DEFAULT_VIEWER = "index.html"
 
 log = logging.getLogger("pun_gme")
@@ -252,18 +260,110 @@ def make_chart(recs, date_label, path):
 
 
 # --------------------------------------------------------------------------- #
+# Forward / Futures (curva da prezzi di controllo GME = settlement)
+# --------------------------------------------------------------------------- #
+def _latest_session(page, service, params_fn, ref):
+    """Trova l'ultima sessione (entro 8 giorni) che restituisce dati. -> (date, list)."""
+    s, h = _open(page)
+    for i in range(8):
+        d = ref - timedelta(days=i)
+        try:
+            r = s.get(service, headers=h, params=params_fn(d), timeout=TIMEOUT)
+            data = r.json()
+        except Exception:  # noqa: BLE001
+            data = []
+        if isinstance(data, list) and data:
+            return d, data
+    return None, []
+
+
+def _parse_power_fwd(data):
+    months, quarters, years = {}, {}, {}
+    for r in data:
+        p = r.get("Prodotto", "")
+        pc = r.get("PrezzoControllo")
+        if pc in (None, ""):
+            continue
+        pc = round(float(pc), 2)
+        m = re.match(r"BL-M-(\d{4})-(\d{2})$", p)
+        if m:
+            months[f"{m.group(1)}-{m.group(2)}"] = pc; continue
+        m = re.match(r"BL-Q-(\d{4})-(\d{2})$", p)
+        if m:
+            quarters[f"{m.group(1)}-Q{int(m.group(2))}"] = pc; continue
+        m = re.match(r"BL-Y-(\d{4})$", p)
+        if m:
+            years[m.group(1)] = pc
+    return {"months": months, "quarters": quarters, "years": years}
+
+
+def _parse_gas_fwd(data):
+    months, quarters, years, seasons = {}, {}, {}, {}
+    for r in data:
+        p = r.get("prodotto", "")
+        pc = r.get("prezzoControllo")
+        if pc in (None, ""):
+            continue
+        pc = round(float(pc), 3)
+        m = re.match(r"M-(\d{4})-(\d{2})$", p)
+        if m:
+            months[f"{m.group(1)}-{m.group(2)}"] = pc; continue
+        m = re.match(r"Q-(\d{4})-(\d{2})$", p)
+        if m:
+            quarters[f"{m.group(1)}-Q{int(m.group(2))}"] = pc; continue
+        m = re.match(r"CY-(\d{4})$", p)
+        if m:
+            years[m.group(1)] = pc; continue
+        if p.startswith(("SS-", "WS-")):
+            seasons[p] = pc
+    return {"months": months, "quarters": quarters, "years": years, "seasons": seasons}
+
+
+def fetch_forward(ref):
+    """Curva forward power (MTE) e gas (MT-GAS) dall'ultima sessione disponibile."""
+    out = {"aggiornato_il": datetime.now().astimezone().isoformat()}
+    try:
+        d, data = _latest_session(MTE_PAGE, MTE_SERVICE, lambda x: {"data": x.strftime(DATE_FMT)}, ref)
+        if data:
+            out["power"] = {"as_of": d.strftime("%Y-%m-%d"), **_parse_power_fwd(data)}
+            log.info("Forward power: %d prodotti (sessione %s)", len(data), d.strftime("%Y-%m-%d"))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Forward power non disponibile: %s", exc)
+    try:
+        d, data = _latest_session(MTGAS_PAGE, MTGAS_SERVICE,
+                                  lambda x: {"DataSessione": x.strftime(DATE_FMT), "Mercato": "MT"}, ref)
+        if data:
+            out["gas"] = {"as_of": d.strftime("%Y-%m-%d"), **_parse_gas_fwd(data)}
+            log.info("Forward gas: %d prodotti (sessione %s)", len(data), d.strftime("%Y-%m-%d"))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Forward gas non disponibile: %s", exc)
+    return out
+
+
+def load_forward(path):
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:  # noqa: BLE001
+            return {}
+    return {}
+
+
+# --------------------------------------------------------------------------- #
 # Generazione pagina
 # --------------------------------------------------------------------------- #
-def write_viewer(html_path, el_hist, gas_hist):
+def write_viewer(html_path, el_hist, gas_hist, fwd=None):
     gen = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
     html = (VIEWER_TEMPLATE
             .replace("/*__ELEC__*/", json.dumps(el_hist, separators=(",", ":")))
             .replace("/*__GAS__*/", json.dumps(gas_hist, separators=(",", ":")))
+            .replace("/*__FWD__*/", json.dumps(fwd or {}, separators=(",", ":")))
             .replace("__GEN__", gen))
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
-    log.info("Pagina aggiornata: %s (PUN %d gg, Gas %d gg)",
-             html_path, len(el_hist), len(gas_hist))
+    log.info("Pagina aggiornata: %s (PUN %d gg, Gas %d gg, forward %s)",
+             html_path, len(el_hist), len(gas_hist), "sì" if fwd else "no")
 
 
 # --------------------------------------------------------------------------- #
@@ -341,7 +441,7 @@ def main(argv=None):
                         format="%(asctime)s %(levelname)s %(message)s")
 
     if args.rebuild_viewer:
-        write_viewer(args.viewer, load_el(args.csv), load_gas(args.gas_csv))
+        write_viewer(args.viewer, load_el(args.csv), load_gas(args.gas_csv), load_forward(FORWARD_JSON))
         return 0
 
     if args.backfill:
@@ -349,7 +449,7 @@ def main(argv=None):
         end = datetime.strptime(args.backfill[1], "%Y-%m-%d")
         el, gas = backfill(args.csv, args.gas_csv, start, end)
         if not args.no_viewer:
-            write_viewer(args.viewer, el, gas)
+            write_viewer(args.viewer, el, gas, load_forward(FORWARD_JSON))
         return 0
 
     date = resolve_date(args.date)
@@ -375,13 +475,24 @@ def main(argv=None):
     except Exception as exc:  # noqa: BLE001
         log.warning("Gas non aggiornato: %s", exc)
 
+    # Forward / Futures (best-effort: non blocca la pagina se non disponibile)
+    fwd = load_forward(FORWARD_JSON)
+    try:
+        fnew = fetch_forward(date)
+        if fnew.get("power") or fnew.get("gas"):
+            fwd = fnew
+            with open(FORWARD_JSON, "w", encoding="utf-8") as f:
+                json.dump(fwd, f, ensure_ascii=False, indent=2)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Forward non aggiornato: %s", exc)
+
     output = build_output(date_label, recs, gas_today)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
     if args.chart:
         make_chart(recs, date_label, args.chart)
     if not args.no_viewer:
-        write_viewer(args.viewer, el, gas)
+        write_viewer(args.viewer, el, gas, fwd)
 
     log.info("OK %s — PUN media %s €/MWh — Gas %s — storico PUN %d gg, Gas %d gg.",
              date_label, output.get("pun_media_eur_mwh"),
