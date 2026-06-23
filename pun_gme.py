@@ -456,10 +456,20 @@ def main(argv=None):
 
     date = resolve_date(args.date)
 
-    # Elettricità (obbligatoria)
-    date_label, recs = fetch_el(date)
+    # Elettricità: scarica il giorno richiesto E il "domani" (day-ahead MGP,
+    # pubblicato in giornata dopo le ~13:00). Così il calendario mostra subito
+    # il PUN di domani appena è disponibile.
     el = load_el(args.csv)
-    el[date_label] = [p for _, p in recs]
+    date_label, recs = None, None
+    for d in (date, date + timedelta(days=1)):
+        try:
+            lbl, r = fetch_el(d)
+            el[lbl] = [p for _, p in r]
+            date_label, recs = lbl, r  # l'ultimo disponibile diventa il "principale"
+        except Exception as exc:  # noqa: BLE001
+            log.info("PUN %s non ancora disponibile: %s", d.strftime("%Y-%m-%d"), exc)
+    if recs is None:
+        raise RuntimeError("Nessun PUN disponibile per oggi né domani.")
     save_el(args.csv, el)
 
     # Gas (best-effort: non blocca se non disponibile)
