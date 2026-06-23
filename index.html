@@ -15,12 +15,12 @@
     font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.45}
   a{color:var(--brand);text-decoration:none} a:hover{text-decoration:underline}
   /* ---------- header brand ---------- */
-  header.brand{display:flex;align-items:center;gap:16px;padding:16px 22px;
+  header.brand{display:flex;align-items:center;gap:18px;padding:14px 22px;
     border-bottom:1px solid var(--line);background:linear-gradient(180deg,#121a25,#0e1116);flex-wrap:wrap}
-  .logo{flex:0 0 auto}
-  .brandtxt{display:flex;flex-direction:column;line-height:1.1}
-  .brandtxt .co{font-size:13px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;font-weight:600}
-  .brandtxt h1{margin:2px 0 0;font-size:21px;font-weight:700}
+  .logoplate{flex:0 0 auto;background:#fff;border-radius:12px;padding:9px 14px;display:flex;align-items:center}
+  .logoplate img{height:46px;width:auto;display:block}
+  .brandtxt{display:flex;flex-direction:column;line-height:1.15}
+  .brandtxt h1{margin:0;font-size:21px;font-weight:700}
   .brandtxt .sub{font-size:12px;color:var(--muted);margin-top:2px}
   .hspacer{flex:1}
   .updated{font-size:12px;color:var(--muted);text-align:right}
@@ -87,20 +87,13 @@
 </head>
 <body>
 <header class="brand">
-  <!-- LOGO segnaposto LMS (sostituibile col logo ufficiale) -->
-  <svg class="logo" width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" aria-label="LMS">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1f6feb"/><stop offset="1" stop-color="#16a34a"/></linearGradient></defs>
-    <rect x="2" y="2" width="56" height="56" rx="14" fill="url(#g)"/>
-    <path d="M33 12 L20 33 H29 L27 48 L41 25 H32 Z" fill="#fff" opacity="0.95"/>
-  </svg>
+  <span class="logoplate"><img src="lms_logo.png" alt="Logica Media Service — Soluzioni per l'Energia"/></span>
   <div class="brandtxt">
-    <span class="co">Logica Media Service</span>
     <h1>Mercati Energetici</h1>
     <span class="sub">PUN elettrico e Gas PSV ufficiali GME · aggiornati ogni giorno</span>
   </div>
   <span class="hspacer"></span>
-  <span class="updated" id="updated">aggiornato 2026-06-23 06:55</span>
+  <span class="updated" id="updated">aggiornato 2026-06-23 07:18</span>
 </header>
 
 <div class="wrap">
