@@ -278,23 +278,25 @@ def _latest_session(page, service, params_fn, ref):
 
 
 def _parse_power_fwd(data):
-    months, quarters, years = {}, {}, {}
+    base = {"months": {}, "quarters": {}, "years": {}}
+    peak = {"months": {}, "quarters": {}, "years": {}}
     for r in data:
         p = r.get("Prodotto", "")
         pc = r.get("PrezzoControllo")
         if pc in (None, ""):
             continue
         pc = round(float(pc), 2)
-        m = re.match(r"BL-M-(\d{4})-(\d{2})$", p)
-        if m:
-            months[f"{m.group(1)}-{m.group(2)}"] = pc; continue
-        m = re.match(r"BL-Q-(\d{4})-(\d{2})$", p)
-        if m:
-            quarters[f"{m.group(1)}-Q{int(m.group(2))}"] = pc; continue
-        m = re.match(r"BL-Y-(\d{4})$", p)
-        if m:
-            years[m.group(1)] = pc
-    return {"months": months, "quarters": quarters, "years": years}
+        for pref, store in (("BL", base), ("PL", peak)):
+            m = re.match(rf"{pref}-M-(\d{{4}})-(\d{{2}})$", p)
+            if m:
+                store["months"][f"{m.group(1)}-{m.group(2)}"] = pc; break
+            m = re.match(rf"{pref}-Q-(\d{{4}})-(\d{{2}})$", p)
+            if m:
+                store["quarters"][f"{m.group(1)}-Q{int(m.group(2))}"] = pc; break
+            m = re.match(rf"{pref}-Y-(\d{{4}})$", p)
+            if m:
+                store["years"][m.group(1)] = pc; break
+    return {**base, "peak": peak}
 
 
 def _parse_gas_fwd(data):

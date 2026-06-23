@@ -81,6 +81,11 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .trendpill{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700}
   .trendpill.down{background:#e7f6ec;color:#15803d}
   .trendpill.up{background:#fdeccd;color:#b45309}
+  .fwdtoggle{display:flex;gap:6px}
+  .fwdtoggle button{padding:5px 12px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:8px;cursor:pointer;font-size:13px}
+  .fwdtoggle button.on{background:var(--accent);border-color:var(--accent);color:#08121d;font-weight:700}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:12px}
+  .legend i{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1px solid rgba(0,0,0,.08)}
   table{border-collapse:collapse;width:100%;margin-top:14px;font-size:13px}
   th,td{border:1px solid var(--line);padding:5px 8px;text-align:right}
   th:first-child,td:first-child{text-align:left}
@@ -150,7 +155,7 @@ const MESI=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","ag
 const DOW=["lun","mar","mer","gio","ven","sab","dom"];
 const SMC=0.01069; // €/MWh -> ≈ €/Smc (PCS standard, indicativo)
 
-let domain="elec", view="day", selDate=null;
+let domain="elec", view="day", selDate=null, fwdType="base";
 let cur={y:new Date().getFullYear(),m:new Date().getMonth(),d:1};
 
 const content=document.getElementById("content"), navlabel=document.getElementById("navlabel");
@@ -176,6 +181,8 @@ function yearKeys(y){return keys().filter(k=>parse(k).y===y);}
 
 function applyAccent(){document.documentElement.style.setProperty('--accent', D().accent.trim());}
 function heat(v,mn,mx){if(mx===mn)return "#dff0e4";const t=(v-mn)/(mx-mn);return `hsl(${140-t*140},72%,72%)`;}
+// Semaforo PUN a soglie fisse: verde <=110 €/MWh (<=11 c€/kWh), giallo 110-140, rosso >=140 (>=14 c€/kWh)
+function bandColor(mwh){if(mwh<=110)return "#bbf7d0";if(mwh<140)return "#fef08a";return "#fecaca";}
 
 function setActive(){
   document.querySelectorAll(".dom").forEach(e=>e.classList.toggle("active",e.dataset.dom===domain));
@@ -211,10 +218,18 @@ function fwdCurve(F){
 }
 function renderForward(){
   navlabel.textContent="Curva forward";
-  const F=(FORWARD||{})[fwdDom()];
-  const hasData=F&&((F.months&&Object.keys(F.months).length)||(F.quarters&&Object.keys(F.quarters).length));
-  if(!hasData){content.innerHTML=`<div class="card"><div class="empty-note">Curva forward non ancora disponibile.<br>Si popola al primo aggiornamento giornaliero (mercati a termine GME).</div></div>`;return;}
-  const curve=fwdCurve(F);const prices=curve.map(c=>c.price),labels=curve.map(c=>ymLabel(c.ym));
+  const isPower=domain==="elec";
+  const F=(FORWARD||{})[fwdDom()]||{};
+  const src=(isPower&&fwdType==="peak")?(F.peak||{}):F;
+  const toggle=isPower?`<div class="fwdtoggle"><button class="${fwdType==="base"?"on":""}" data-ft="base">Baseload</button><button class="${fwdType==="peak"?"on":""}" data-ft="peak">Peak</button></div>`:"";
+  const wire=()=>document.querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{fwdType=b.dataset.ft;render();});
+  const tit=isPower?("Energia ("+(fwdType==="peak"?"peak load":"baseload")+")"):"Gas PSV";
+  const hasData=(src.months&&Object.keys(src.months).length)||(src.quarters&&Object.keys(src.quarters).length);
+  if(!hasData){
+    content.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Curva forward — ${tit}</h3>${toggle}</div><div class="empty-note">Curva forward non ancora disponibile per questa selezione.</div></div>`;
+    wire();return;
+  }
+  const curve=fwdCurve(src);const prices=curve.map(c=>c.price),labels=curve.map(c=>ymLabel(c.ym));
   const front=prices[0],peak=Math.max(...prices),pI=prices.indexOf(peak);
   const i12=Math.min(12,curve.length-1),m12=prices[i12];
   const trend=front?((m12-front)/front*100):0;
@@ -223,29 +238,31 @@ function renderForward(){
   const qLabel=k=>{const[y,q]=k.split("-Q");return `Q${q} ${y}`;};
   const sLabel=k=>k.replace("SS-","Estate ").replace("WS-","Inverno ");
   const rows=(arr,fk)=>arr.map(([k,v])=>`<tr><td>${fk(k)}</td><td>${eur(v)} €/MWh</td></tr>`).join("");
-  const qs=Object.entries(F.quarters||{}).sort(),ys=Object.entries(F.years||{}).sort(),ss=Object.entries(F.seasons||{}).sort();
+  const qs=Object.entries(src.quarters||{}).sort(),ys=Object.entries(src.years||{}).sort(),ss=Object.entries(F.seasons||{}).sort();
   let tbl="";
   if(qs.length)tbl+=`<tr><th colspan="2">Trimestri</th></tr>`+rows(qs,qLabel);
-  if(ss.length)tbl+=`<tr><th colspan="2">Stagioni</th></tr>`+rows(ss,sLabel);
+  if(ss.length&&!isPower)tbl+=`<tr><th colspan="2">Stagioni</th></tr>`+rows(ss,sLabel);
   if(ys.length)tbl+=`<tr><th colspan="2">Anni (Cal)</th></tr>`+rows(ys,k=>"Cal "+k);
   content.innerHTML=`<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <h3 style="margin:0">Curva forward — ${domain==="elec"?"Energia (baseload)":"Gas PSV"}</h3>
-      <span class="trendpill ${trend<=0?"down":"up"}">${trendTxt}</span></div>
+      <h3 style="margin:0">Curva forward — ${tit}</h3>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${toggle}<span class="trendpill ${trend<=0?"down":"up"}">${trendTxt}</span></div></div>
     <div class="stats">
       <div class="stat"><div class="k">Front · ${labels[0]}</div><div class="val">${eur(front)} <small>€/MWh</small></div>${smc}</div>
       <div class="stat"><div class="k">Picco · ${labels[pI]}</div><div class="val" style="color:#c0392b">${eur(peak)} <small>€/MWh</small></div></div>
       <div class="stat"><div class="k">A 12 mesi · ${labels[i12]}</div><div class="val" style="color:var(--elec)">${eur(m12)} <small>€/MWh</small></div></div>
     </div>
     ${barChart(prices,labels,{xevery:2})}
-    <div class="hint">Il mercato si aspetta prezzi ${trend<=0?"in discesa":"in salita"}. Fonte: settlement (prezzo di controllo) GME ${domain==="elec"?"MTE":"MT-GAS"}, sessione ${F.as_of}. I mesi non quotati direttamente sono stimati dal trimestre/anno di riferimento.</div>
+    <div class="hint">Il mercato si aspetta prezzi ${trend<=0?"in discesa":"in salita"}. Fonte: settlement (prezzo di controllo) GME ${isPower?"MTE":"MT-GAS"}, sessione ${F.as_of}.${isPower?(" Profilo: "+(fwdType==="peak"?"peak load":"baseload")+"."):""} I mesi non quotati direttamente sono stimati dal trimestre/anno di riferimento.</div>
     <table style="margin-top:14px"><tbody>${tbl}</tbody></table>
   </div>`;
+  wire();
 }
 function barChart(values,labels,opts={}){
   const max=Math.max(...values,0),min=Math.min(...values,0),span=(max-min)||1;let bars="",xs="";
   values.forEach((v,i)=>{const h=Math.max(2,((v-min)/span)*100);
-    bars+=`<div class="bar" style="height:${h}%"><span class="tip">${labels[i]}: ${eur(v)} ${D().unit}</span></div>`;
+    const bg=opts.band?`;background:${bandColor(v)}`:"";
+    bars+=`<div class="bar" style="height:${h}%${bg}"><span class="tip">${labels[i]}: ${eur(v)} ${D().unit}</span></div>`;
     xs+=`<div>${opts.xevery?(i%opts.xevery===0?labels[i]:""):labels[i]}</div>`;});
   return `<div class="bars">${bars}</div><div class="xlabels">${xs}</div>`;
 }
@@ -266,11 +283,13 @@ function renderDay(){
   for(let i=0;i<fd;i++)cells+=`<div class="cell empty"></div>`;
   for(let d=1;d<=nd;d++){const key=fmt(cur.y,cur.m,d);
     if(D().data[key]!=null){const a=dv(key);
-      cells+=`<div class="cell has" style="background:${heat(a,mn,mx)}" data-key="${key}"><div class="d">${d}</div><div><span class="v">${eur(a,1)}</span> <span class="u">€/MWh</span></div></div>`;
+      const col=(domain==="elec")?bandColor(a):heat(a,mn,mx);
+      cells+=`<div class="cell has" style="background:${col}" data-key="${key}"><div class="d">${d}</div><div><span class="v">${eur(a,1)}</span> <span class="u">€/MWh</span></div></div>`;
     }else cells+=`<div class="cell"><div class="d">${d}</div></div>`;}
   let detail=`<div class="hint">Clicca un giorno colorato per il dettaglio.</div>`;
   if(selDate&&D().data[selDate]!=null&&parse(selDate).y===cur.y&&parse(selDate).m===cur.m)detail=dayDetail(selDate);
-  content.innerHTML=`<div class="card"><div class="dow">${DOW.map(x=>`<div>${x}</div>`).join("")}</div><div class="grid">${cells}</div></div><div style="height:16px"></div>${detail}`;
+  const legend=(domain==="elec")?`<div class="legend"><span><i style="background:#bbf7d0"></i>≤ 11 c€/kWh (≤110 €/MWh)</span><span><i style="background:#fef08a"></i>11,1–13,9 c€/kWh</span><span><i style="background:#fecaca"></i>≥ 14 c€/kWh (≥140 €/MWh)</span></div>`:"";
+  content.innerHTML=`<div class="card"><div class="dow">${DOW.map(x=>`<div>${x}</div>`).join("")}</div><div class="grid">${cells}</div>${legend}</div><div style="height:16px"></div>${detail}`;
   document.querySelectorAll(".cell.has").forEach(c=>c.onclick=()=>{selDate=c.dataset.key;render();});
 }
 function dayDetail(key){
@@ -278,10 +297,10 @@ function dayDetail(key){
   if(D().hourly){
     const vals=ELEC[key],a=avg(vals),mn=Math.min(...vals),mx=Math.max(...vals);
     const labels=vals.map((_,i)=>String(i+1).padStart(2,"0"));let rows="";
-    vals.forEach((v,i)=>rows+=`<tr><td>${String(i+1).padStart(2,"0")}:00</td><td>${eur(v)}</td><td>${eur(v/1000,4)}</td></tr>`);
+    vals.forEach((v,i)=>{const bg=bandColor(v);rows+=`<tr><td>${String(i+1).padStart(2,"0")}:00</td><td style="background:${bg}">${eur(v)}</td><td style="background:${bg}">${eur(v/1000,4)}</td></tr>`;});
     return `<div class="card"><h3 style="margin:0 0 4px">Profilo orario PUN — ${p.d} ${MESI[p.m]} ${p.y}</h3>
       <div class="stats">${statBlock("Media giorno",a)}${statBlock("Minimo",mn)}${statBlock("Massimo",mx)}</div>
-      ${barChart(vals,labels,{})}
+      ${barChart(vals,labels,{band:true})}
       <table><thead><tr><th>Ora</th><th>€/MWh</th><th>€/kWh</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   const v=GAS[key];
