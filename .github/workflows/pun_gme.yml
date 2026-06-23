@@ -1,7 +1,7 @@
-name: Mercati Energetici (cloud, Mac-off) — PUN + Gas PSV
+name: Mercati Energetici (cloud, Mac-off) — PUN + Gas PSV + Forward
 
-# Gira nei server di GitHub: aggiorna gli storici PUN e Gas e ripubblica la
-# pagina su GitHub Pages OGNI GIORNO, indipendentemente dal tuo computer.
+# Gira nei server di GitHub: aggiorna storici PUN/Gas, curva forward (MTE/MT-GAS)
+# e ripubblica la pagina su GitHub Pages OGNI GIORNO, indipendente dal computer.
 # Nessun secret, nessuna API key (portale GME pubblico).
 
 on:
@@ -30,13 +30,13 @@ jobs:
       - name: Installa dipendenze
         run: pip install requests matplotlib
 
-      - name: Scarica PUN + Gas di oggi e rigenera la pagina
+      - name: Scarica PUN + Gas + Forward e rigenera la pagina
         run: python pun_gme.py --date today --chart --viewer index.html
 
       - name: Committa e pubblica
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html pun_storico.csv gas_storico.csv pun_gme.json pun_gme_profilo.png
+          git add index.html pun_storico.csv gas_storico.csv forward.json pun_gme.json pun_gme_profilo.png
           git diff --cached --quiet || git commit -m "Mercati energetici aggiornati $(date -u +%F)"
           git push
