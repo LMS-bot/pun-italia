@@ -1,13 +1,11 @@
-name: PUN giornaliero (cloud, Mac-off) — GitHub Actions + Pages
+name: Mercati Energetici (cloud, Mac-off) — PUN + Gas PSV
 
-# Gira nei server di GitHub: aggiorna lo storico e pubblica il calendario su
-# GitHub Pages OGNI GIORNO, indipendentemente dal tuo computer (Mac acceso o
-# spento, non importa). Nessun secret, nessuna API key (portale GME pubblico).
+# Gira nei server di GitHub: aggiorna gli storici PUN e Gas e ripubblica la
+# pagina su GitHub Pages OGNI GIORNO, indipendentemente dal tuo computer.
+# Nessun secret, nessuna API key (portale GME pubblico).
 
 on:
   schedule:
-    # Dopo le 14:00 ora italiana (esiti MGP pubblicati). GitHub usa UTC:
-    #   CEST (mar-ott): 14:30 IT = 12:30 UTC | CET (nov-mar): 14:30 IT = 13:30 UTC
     - cron: "30 12 * * *"
     - cron: "30 13 * * *"
   workflow_dispatch: {}
@@ -32,13 +30,13 @@ jobs:
       - name: Installa dipendenze
         run: pip install requests matplotlib
 
-      - name: Scarica il PUN di oggi e rigenera il calendario (index.html)
+      - name: Scarica PUN + Gas di oggi e rigenera la pagina
         run: python pun_gme.py --date today --chart --viewer index.html
 
       - name: Committa e pubblica
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html pun_storico.csv pun_gme.json pun_gme_profilo.png
-          git diff --cached --quiet || git commit -m "PUN aggiornato $(date -u +%F)"
+          git add index.html pun_storico.csv gas_storico.csv pun_gme.json pun_gme_profilo.png
+          git diff --cached --quiet || git commit -m "Mercati energetici aggiornati $(date -u +%F)"
           git push
