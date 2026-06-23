@@ -1,0 +1,44 @@
+name: PUN giornaliero (cloud, Mac-off) — GitHub Actions + Pages
+
+# Gira nei server di GitHub: aggiorna lo storico e pubblica il calendario su
+# GitHub Pages OGNI GIORNO, indipendentemente dal tuo computer (Mac acceso o
+# spento, non importa). Nessun secret, nessuna API key (portale GME pubblico).
+
+on:
+  schedule:
+    # Dopo le 14:00 ora italiana (esiti MGP pubblicati). GitHub usa UTC:
+    #   CEST (mar-ott): 14:30 IT = 12:30 UTC | CET (nov-mar): 14:30 IT = 13:30 UTC
+    - cron: "30 12 * * *"
+    - cron: "30 13 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pun-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installa dipendenze
+        run: pip install requests matplotlib
+
+      - name: Scarica il PUN di oggi e rigenera il calendario (index.html)
+        run: python pun_gme.py --date today --chart --viewer index.html
+
+      - name: Committa e pubblica
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html pun_storico.csv pun_gme.json pun_gme_profilo.png
+          git diff --cached --quiet || git commit -m "PUN aggiornato $(date -u +%F)"
+          git push
