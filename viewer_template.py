@@ -19,8 +19,8 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
 <meta name="description" content="PUN elettrico e gas PSV ufficiali GME, aggiornati ogni giorno. A cura di Logica Media Service (LMS)."/>
 <style>
   :root{
-    --bg:#0e1116; --panel:#161d27; --panel2:#1d2733; --line:#2a3744; --txt:#e9eef4;
-    --muted:#92a1b2; --brand:#1f6feb; --elec:#16a34a; --gas:#f59e0b; --chip:#222e3c;
+    --bg:#f4f6f9; --panel:#ffffff; --panel2:#f1f4f8; --line:#dde3ea; --txt:#16202c;
+    --muted:#5d6b7a; --brand:#1f6feb; --elec:#15a34a; --gas:#d97706; --chip:#eef2f6;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);
@@ -28,8 +28,8 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   a{color:var(--brand);text-decoration:none} a:hover{text-decoration:underline}
   /* ---------- header brand ---------- */
   header.brand{display:flex;align-items:center;gap:18px;padding:14px 22px;
-    border-bottom:1px solid var(--line);background:linear-gradient(180deg,#121a25,#0e1116);flex-wrap:wrap}
-  .logoplate{flex:0 0 auto;background:#fff;border-radius:12px;padding:9px 14px;display:flex;align-items:center}
+    border-bottom:1px solid var(--line);background:linear-gradient(180deg,#ffffff,#f4f6f9);flex-wrap:wrap}
+  .logoplate{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 14px;display:flex;align-items:center}
   .logoplate img{height:46px;width:auto;display:block}
   .brandtxt{display:flex;flex-direction:column;line-height:1.15}
   .brandtxt h1{margin:0;font-size:21px;font-weight:700}
@@ -71,9 +71,9 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .stat .val small{font-size:12px;color:var(--muted);font-weight:500}
   .bars{display:flex;align-items:flex-end;gap:3px;height:220px;margin-top:8px;border-bottom:1px solid var(--line);padding-bottom:2px}
   .bar{flex:1;border-radius:3px 3px 0 0;position:relative;min-height:2px;background:var(--accent)}
-  .bar:hover{outline:2px solid #fff}
+  .bar:hover{outline:2px solid var(--txt)}
   .bar .tip{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-    background:#000;border:1px solid var(--line);padding:4px 7px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:5;margin-bottom:4px}
+    background:#16202c;color:#fff;border:1px solid var(--line);padding:4px 7px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:5;margin-bottom:4px}
   .bar:hover .tip{display:block}
   .xlabels{display:flex;gap:3px;margin-top:4px}
   .xlabels div{flex:1;text-align:center;font-size:9px;color:var(--muted)}
@@ -89,7 +89,7 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
     padding:18px;margin-top:22px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
   .certs img{height:54px;width:auto;background:#fff;border-radius:8px;padding:6px}
   .certs .lbl{width:100%;text-align:center;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
-  footer.brand{margin-top:22px;border-top:1px solid var(--line);background:#0c1218;color:var(--muted);font-size:13px}
+  footer.brand{margin-top:22px;border-top:1px solid var(--line);background:#eef2f6;color:var(--muted);font-size:13px}
   .foot-in{max-width:1080px;margin:0 auto;padding:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px}
   footer .co{color:var(--txt);font-weight:700;letter-spacing:.04em;margin-bottom:6px}
   footer .lab{color:var(--txt);font-weight:600;margin-bottom:3px}
@@ -190,7 +190,7 @@ function monthKeys(y,m){return keys().filter(k=>{const p=parse(k);return p.y===y
 function yearKeys(y){return keys().filter(k=>parse(k).y===y);}
 
 function applyAccent(){document.documentElement.style.setProperty('--accent', D().accent.trim());}
-function heat(v,mn,mx){if(mx===mn)return "#1e3a2a";const t=(v-mn)/(mx-mn);return `hsl(${140-t*140},55%,30%)`;}
+function heat(v,mn,mx){if(mx===mn)return "#dff0e4";const t=(v-mn)/(mx-mn);return `hsl(${140-t*140},72%,72%)`;}
 
 function setActive(){
   document.querySelectorAll(".dom").forEach(e=>e.classList.toggle("active",e.dataset.dom===domain));
