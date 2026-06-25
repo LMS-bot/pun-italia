@@ -86,6 +86,25 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .fwdtoggle button.on{background:var(--accent);border-color:var(--accent);color:#08121d;font-weight:700}
   .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:12px}
   .legend i{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1px solid rgba(0,0,0,.08)}
+  .consbanner{background:#e7f6ec;color:#15803d;border:1px solid #cdeed6;border-radius:10px;padding:11px 14px;font-size:15px;margin-bottom:12px}
+  .moderow{display:flex;gap:8px;margin-bottom:12px}
+  .modebtn{flex:1;padding:11px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;cursor:pointer;font-size:15px;font-weight:600;color:var(--txt)}
+  .modebtn.on{background:#b45309;border-color:#b45309;color:#fff}
+  .bizgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-bottom:12px}
+  .bizbtn{padding:11px 12px;border:1px solid var(--line);background:var(--panel);border-radius:10px;cursor:pointer;font-size:14px;color:var(--txt);text-align:center}
+  .bizbtn.on{background:#b45309;border-color:#b45309;color:#fff;font-weight:700}
+  .acards{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+  .acard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff}
+  .ahead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .aic{font-size:18px;margin-right:6px}
+  .asub{font-size:12px;color:var(--muted);margin-top:2px}
+  .asave{color:#15803d;font-weight:800;font-size:19px;text-align:right;white-space:nowrap}
+  .asublab{font-size:11px;color:var(--muted);font-weight:500}
+  .abest{margin-top:10px;font-size:13px;color:#15803d}
+  .chip{display:inline-block;background:#e7f6ec;color:#15803d;border-radius:8px;padding:4px 9px;margin:4px 5px 0 0;font-weight:600}
+  .aavoid{margin-top:9px;font-size:13px;color:#b91c1c}
+  .aavoid b{background:#fdecec;color:#b91c1c;border-radius:7px;padding:2px 8px}
+  .acont{margin-top:10px;font-size:12px;color:var(--muted);background:var(--chip);border-radius:10px;padding:8px 10px}
   table{border-collapse:collapse;width:100%;margin-top:14px;font-size:13px}
   th,td{border:1px solid var(--line);padding:5px 8px;text-align:right}
   th:first-child,td:first-child{text-align:left}
@@ -126,6 +145,7 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
     <div class="tab" data-view="month">📊 Mese</div>
     <div class="tab" data-view="year">📈 Anno</div>
     <div class="tab" data-view="forward">🔮 Forward</div>
+    <div class="tab" data-view="consigli">💡 Consigli</div>
   </div>
   <div class="nav"><button id="prev">‹</button><div class="label" id="navlabel"></div><button id="next">›</button></div>
   <div id="content"></div>
@@ -154,6 +174,67 @@ const CERTS = [];
 const MESI=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
 const DOW=["lun","mar","mer","gio","ven","sab","dom"];
 const SMC=0.01069; // €/MWh -> ≈ €/Smc (PCS standard, indicativo)
+// Consigli di consumo — potenze (kW), durata ciclo (h) o energia (kWh) indicative
+const APP_CASA=[
+ {n:"Lavatrice",ic:"💦",kw:2,h:1.5,label:"2 kW · ciclo ~1.5h"},
+ {n:"Lavastoviglie",ic:"🍽️",kw:1.8,h:1.5,label:"1.8 kW · ciclo ~1.5h"},
+ {n:"Asciugatrice",ic:"🌬️",kw:2.5,h:1.5,label:"2.5 kW · ciclo ~1.5h"},
+ {n:"Forno",ic:"🔥",kw:2.2,h:1,label:"2.2 kW · ciclo ~1h"},
+ {n:"Ferro da stiro",ic:"👔",kw:2.4,h:0.5,label:"2.4 kW · ciclo ~0.5h"},
+ {n:"Carica auto EV",ic:"🚗",energy:10,label:"10 kWh ricarica"}
+];
+const BIZ=[
+ {id:"ristorante",label:"Ristorante / Bar",icon:"🍽️",equip:[
+   {n:"Forno professionale",ic:"🔥",kw:8,h:2,label:"8 kW · uso ~2h/giorno"},
+   {n:"Abbattitore di temperatura",ic:"❄️",kw:3,h:1,label:"3 kW · ciclo ~1h"},
+   {n:"Lavastoviglie industriale",ic:"🍽️",kw:6,h:1.5,label:"6 kW · ciclo ~1.5h"},
+   {n:"Friggitrice",ic:"🍟",kw:4,h:1,label:"4 kW · uso ~1h/giorno"},
+   {n:"Climatizzazione sala",ic:"❄️",kw:3.5,h:4,label:"3.5 kW · uso ~4h/giorno"}]},
+ {id:"panificio",label:"Panificio / Pasticceria",icon:"🥖",equip:[
+   {n:"Forno industriale",ic:"🔥",kw:15,h:3,label:"15 kW · cottura ~3h/giorno"},
+   {n:"Impastatrice",ic:"🥣",kw:2.5,h:1,label:"2.5 kW · ciclo ~1h"},
+   {n:"Cella di lievitazione",ic:"🌡️",kw:2,h:6,label:"2 kW · uso ~6h/giorno"},
+   {n:"Abbattitore",ic:"❄️",kw:3,h:1,label:"3 kW · ciclo ~1h"}]},
+ {id:"officina",label:"Officina meccanica",icon:"🔧",equip:[
+   {n:"Compressore aria",ic:"💨",kw:5.5,h:3,label:"5.5 kW · uso ~3h/giorno"},
+   {n:"Saldatrice",ic:"⚡",kw:6,h:1.5,label:"6 kW · uso ~1.5h/giorno"},
+   {n:"Ponte elevatore elettrico",ic:"🚗",kw:2.2,h:2,label:"2.2 kW · uso ~2h/giorno"},
+   {n:"Cabina di verniciatura",ic:"🎨",kw:9,h:1,label:"9 kW · ciclo ~1h"}]},
+ {id:"negozio",label:"Negozio / Retail",icon:"🛍️",equip:[
+   {n:"Climatizzazione punto vendita",ic:"❄️",kw:4,h:8,label:"4 kW · uso ~8h/giorno"},
+   {n:"Vetrina refrigerata",ic:"🧊",kw:1.5,h:10,label:"1.5 kW · uso ~10h/giorno"},
+   {n:"Illuminazione LED",ic:"💡",kw:2,h:10,label:"2 kW · uso ~10h/giorno"}]},
+ {id:"ufficio",label:"Ufficio",icon:"🏢",equip:[
+   {n:"Climatizzazione uffici",ic:"❄️",kw:5,h:8,label:"5 kW · uso ~8h/giorno"},
+   {n:"Sala server",ic:"🖥️",kw:3,continuous:true,label:"3 kW · funzionamento continuo"},
+   {n:"Ricarica veicoli aziendali",ic:"🚗",energy:30,label:"30 kWh ricarica flotta"}]},
+ {id:"lavanderia",label:"Lavanderia industriale",icon:"🧺",equip:[
+   {n:"Lavatrice industriale",ic:"💦",kw:9,h:1,label:"9 kW · ciclo ~1h"},
+   {n:"Asciugatrice industriale",ic:"🌬️",kw:12,h:1,label:"12 kW · ciclo ~1h"},
+   {n:"Stiratrice a vapore",ic:"♨️",kw:7,h:2,label:"7 kW · uso ~2h/giorno"}]},
+ {id:"hotel",label:"Hotel / Agriturismo",icon:"🏨",equip:[
+   {n:"Cucina industriale",ic:"🍳",kw:10,h:3,label:"10 kW · uso ~3h/giorno"},
+   {n:"Lavatrici biancheria",ic:"💦",kw:6,h:1.5,label:"6 kW · ciclo ~1.5h"},
+   {n:"Pompa filtraggio piscina",ic:"🏊",kw:2,h:6,label:"2 kW · uso ~6h/giorno"},
+   {n:"Climatizzazione camere",ic:"❄️",kw:6,h:8,label:"6 kW · uso ~8h/giorno"}]},
+ {id:"palestra",label:"Palestra / Centro estetico",icon:"💪",equip:[
+   {n:"Sauna / bagno turco",ic:"🔥",kw:6,h:3,label:"6 kW · uso ~3h/giorno"},
+   {n:"Climatizzazione sala corsi",ic:"❄️",kw:4,h:10,label:"4 kW · uso ~10h/giorno"},
+   {n:"Lavatrici asciugamani",ic:"💦",kw:3,h:1.5,label:"3 kW · ciclo ~1.5h"}]},
+ {id:"supermercato",label:"Supermercato",icon:"🛒",equip:[
+   {n:"Banchi frigo refrigerati",ic:"🧊",kw:8,continuous:true,label:"8 kW · funzionamento continuo"},
+   {n:"Cella surgelati",ic:"❄️",kw:10,continuous:true,label:"10 kW · funzionamento continuo"},
+   {n:"Climatizzazione punto vendita",ic:"❄️",kw:7,h:10,label:"7 kW · uso ~10h/giorno"},
+   {n:"Illuminazione LED",ic:"💡",kw:5,h:12,label:"5 kW · uso ~12h/giorno"},
+   {n:"Ricarica carrelli elevatori",ic:"🚚",energy:20,label:"20 kWh ricarica"}]},
+ {id:"manifattura",label:"Azienda manifatturiera",icon:"🏭",equip:[
+   {n:"Linea di produzione / CNC",ic:"⚙️",kw:25,h:8,label:"25 kW · uso ~8h/giorno"},
+   {n:"Compressore industriale",ic:"💨",kw:15,h:6,label:"15 kW · uso ~6h/giorno"},
+   {n:"Forno trattamento termico",ic:"🔥",kw:30,h:4,label:"30 kW · ciclo ~4h"},
+   {n:"Saldatura robotizzata",ic:"⚡",kw:12,h:5,label:"12 kW · uso ~5h/giorno"},
+   {n:"Aspirazione/ventilazione",ic:"🌬️",kw:8,h:8,label:"8 kW · uso ~8h/giorno"},
+   {n:"Ricarica mezzi aziendali",ic:"🚚",energy:25,label:"25 kWh ricarica"}]}
+];
 
 let domain="elec", view="day", selDate=null, fwdType="base";
 let cur={y:new Date().getFullYear(),m:new Date().getMonth(),d:1};
@@ -196,6 +277,7 @@ function init(){
 function render(){
   applyAccent(); setActive();
   if(view==="forward"){renderForward();return;}
+  if(view==="consigli"){renderConsigli();return;}
   const ks=keys();
   if(!ks.length){content.innerHTML=`<div class="card"><div class="empty-note">Nessun dato ${D().name} disponibile.</div></div>`;navlabel.textContent="—";return;}
   if(view==="day")renderDay();else if(view==="month")renderMonth();else renderYear();
@@ -314,10 +396,12 @@ function renderMonth(){
   const ks=monthKeys(cur.y,cur.m).sort();
   if(!ks.length){content.innerHTML=`<div class="card"><div class="empty-note">Nessun dato per ${MESI[cur.m]} ${cur.y}.</div></div>`;return;}
   const dv=D().dayVal; const dayVals=ks.map(dv);
-  const mAvg=D().monthAvg(ks),mMin=Math.min(...dayVals),mMax=Math.max(...dayVals),labels=ks.map(k=>String(parse(k).d));
+  let miI=0,maI=0; dayVals.forEach((v,i)=>{if(v<dayVals[miI])miI=i;if(v>dayVals[maI])maI=i;});
+  const mese3=MESI[cur.m].slice(0,3);
+  const mAvg=D().monthAvg(ks),labels=ks.map(k=>String(parse(k).d));
   const sb=domain==="gas"?statGas:statBlock;
   content.innerHTML=`<div class="card"><h3 style="margin:0 0 4px">${D().name} — medie giornaliere ${MESI[cur.m]} ${cur.y}</h3>
-    <div class="stats">${sb("Media mese",mAvg)}${sb("Giorno più basso",mMin)}${sb("Giorno più alto",mMax)}
+    <div class="stats">${sb("Media mese",mAvg)}${sb("Giorno più basso · "+parse(ks[miI]).d+" "+mese3,dayVals[miI])}${sb("Giorno più alto · "+parse(ks[maI]).d+" "+mese3,dayVals[maI])}
     <div class="stat"><div class="k">Giorni</div><div class="val">${ks.length}</div></div></div>
     ${barChart(dayVals,labels,{xevery:2})}</div>`;
 }
@@ -333,7 +417,45 @@ function renderYear(){
     <div class="stats">${sb("Media anno",yAvg)}${sb("Mese più basso",mn)}${sb("Mese più alto",mx)}</div>
     ${barChart(vals,labels,{})}</div>`;
 }
-function step(dir){if(view==="forward")return;if(view==="year")cur.y+=dir;else{cur.m+=dir;if(cur.m<0){cur.m=11;cur.y--;}if(cur.m>11){cur.m=0;cur.y++;}}render();}
+function consDay(){const ks=Object.keys(ELEC).sort();return ks.length?ks[ks.length-1]:null;}
+function calcApp(prices,energy){
+  const costs=prices.map(p=>energy*p/1000);
+  const idx=[...costs.keys()];
+  const byCost=[...idx].sort((a,b)=>costs[a]-costs[b]);
+  const best=byCost.slice(0,3).sort((a,b)=>a-b);
+  const worst=byCost[byCost.length-1];
+  const minCost=Math.min(...best.map(i=>costs[i]));
+  return {costs,best,worst,risparmio:costs[worst]-minCost};
+}
+function appCard(a,prices){
+  if(a.continuous){
+    const daily=a.kw*prices.reduce((s,p)=>s+p,0)/1000;
+    return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div></div><div class="acont">⚠️ Funzionamento continuo H24 — non programmabile</div><div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">Costo stimato giornaliero</span><b style="font-size:17px">${eur(daily,2)}€</b></div></div>`;
+  }
+  const energy=(a.energy!=null)?a.energy:a.kw*a.h;
+  const r=calcApp(prices,energy);
+  const chips=r.best.map(i=>`<span class="chip">${String(i).padStart(2,"0")}:00 ~${eur(r.costs[i],2)}€</span>`).join("");
+  return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div><div class="asave">−${eur(r.risparmio,2)}€<div class="asublab">risparmio/giorno</div></div></div><div class="abest">✅ Migliori ore di accensione:</div><div>${chips}</div><div class="aavoid">🔴 Evita: <b>${String(r.worst).padStart(2,"0")}:00</b> · costa ${eur(r.risparmio,2)}€ in più</div></div>`;
+}
+function renderConsigli(){
+  navlabel.textContent="Consigli di consumo";
+  const key=consDay();
+  if(!key){content.innerHTML=`<div class="card"><div class="empty-note">Dati PUN non disponibili.</div></div>`;return;}
+  const prices=ELEC[key],p=parse(key);
+  let mh=0;prices.forEach((v,i)=>{if(v<prices[mh])mh=i;});
+  const ckwh=prices[mh]/10;
+  let body="";
+  if(consMode==="casa"){ body=`<div class="acards">${APP_CASA.map(a=>appCard(a,prices)).join("")}</div>`; }
+  else{
+    const biz=BIZ.find(b=>b.id===consBiz)||BIZ[0];
+    const grid=BIZ.map(b=>`<button class="bizbtn ${b.id===biz.id?'on':''}" data-biz="${b.id}">${b.icon} ${b.label}</button>`).join("");
+    body=`<div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px">Seleziona il tipo di attività:</div><div class="bizgrid">${grid}</div><div style="font-size:13px;color:#15803d;font-weight:700;margin-bottom:8px">⚙️ Attrezzature consigliate per: ${biz.label}</div><div class="acards">${biz.equip.map(a=>appCard(a,prices)).join("")}</div>`;
+  }
+  content.innerHTML=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, in base al PUN orario. Stime su potenze tipiche, solo prezzo energia (escluse imposte/oneri).</div>${body}</div>`;
+  document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{consMode=b.dataset.mode;render();});
+  document.querySelectorAll("[data-biz]").forEach(b=>b.onclick=()=>{consBiz=b.dataset.biz;render();});
+}
+function step(dir){if(view==="forward"||view==="consigli")return;if(view==="year")cur.y+=dir;else{cur.m+=dir;if(cur.m<0){cur.m=11;cur.y--;}if(cur.m>11){cur.m=0;cur.y++;}}render();}
 function renderCerts(){
   if(!CERTS.length)return;
   document.getElementById("certs").style.display="flex";
