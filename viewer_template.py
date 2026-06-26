@@ -123,6 +123,41 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   footer .lab{color:var(--txt);font-weight:600;margin-bottom:3px}
   footer .row{margin:2px 0}
   .legal{max-width:1080px;margin:0 auto;padding:16px 22px;color:#5f6f7e;font-size:11px}
+  .herowrap{background:linear-gradient(180deg,#ffffff,#eef3f9);border-bottom:1px solid var(--line)}
+  .hero{max-width:1080px;margin:0 auto;padding:18px 22px}
+  .hero-main{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .hero-num{font-size:46px;font-weight:800;line-height:1;color:var(--accent);display:flex;align-items:baseline;gap:8px}
+  .hero-unit{font-size:18px;font-weight:700;color:var(--muted)}
+  .hero-meta{display:flex;flex-direction:column;gap:2px}
+  .hero-lab{font-size:15px;font-weight:600}
+  .hero-sub{font-size:13px;color:var(--muted)}
+  .hero-ctx{margin-top:8px;font-size:13px;color:var(--muted);max-width:680px}
+  @media (max-width:640px){
+    .wrap{padding:12px 12px 26px}
+    header.brand{padding:12px 14px;gap:10px}
+    .brandtxt h1{font-size:18px}
+    .updated{width:100%;text-align:left}
+    .domains,.tabs{flex-wrap:wrap}
+    .dom{padding:9px 12px;font-size:14px}
+    .tab{padding:8px 12px;font-size:13px}
+    .nav .label{min-width:0;flex:1;font-size:15px}
+    .dow,.grid{gap:3px}
+    .dow div{font-size:10px}
+    .cell{min-height:46px;padding:4px 5px;border-radius:7px}
+    .cell .d{font-size:11px}
+    .cell .v{font-size:11px}
+    .cell .u{display:none}
+    .bars{height:160px}
+    .xlabels div{font-size:8px}
+    .stat{min-width:0;flex:1 1 calc(50% - 7px)}
+    .card{padding:14px;overflow-x:auto}
+    .bigprice{font-size:32px}
+    table{font-size:12px}
+    .hero{padding:14px}
+    .hero-num{font-size:36px}
+    .hero-unit{font-size:16px}
+    .trendpill{font-size:12px}
+  }
 </style>
 </head>
 <body>
@@ -135,6 +170,8 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   <span class="hspacer"></span>
   <span class="updated" id="updated">aggiornato __GEN__</span>
 </header>
+
+<section class="herowrap"><div class="hero" id="hero"></div></section>
 
 <div class="wrap">
   <div class="domains">
@@ -276,8 +313,44 @@ function init(){
   if(ks.length){const last=parse(ks[ks.length-1]);cur={y:last.y,m:last.m,d:last.d};selDate=ks[ks.length-1];}
   renderCerts();
 }
+function heroTrend(ks, dvFn){
+  if(ks.length < 2) return null;
+  const last = dvFn(ks[ks.length-1]);
+  const prev = ks.slice(-8, -1).map(dvFn);
+  if(!prev.length) return null;
+  const base = prev.reduce((a,b)=>a+b,0)/prev.length;
+  if(!base) return null;
+  return (last - base) / base * 100;
+}
+function renderHero(){
+  const host = document.getElementById('hero');
+  if(!host) return;
+  const ks = keys();
+  if(!ks.length){ host.innerHTML=''; return; }
+  const dv = D().dayVal;
+  const lk = ks[ks.length-1];
+  const mwh = dv(lk);
+  const ckwh = mwh/10;
+  const p = parse(lk);
+  const tr = heroTrend(ks, dv);
+  const isUp = tr!=null && tr>0;
+  const pill = tr==null ? '' : `<span class="trendpill ${isUp?'up':'down'}">${isUp?'↗ +':'↘ '}${tr.toFixed(1)}% <small style="font-weight:500">sulla settimana</small></span>`;
+  const second = domain==='gas' ? `${eur(mwh)} €/MWh · ≈ ${eur(mwh*SMC,4)} €/Smc` : `${eur(mwh)} €/MWh`;
+  const ctx = domain==='gas' ? 'Il PSV è il prezzo all’ingrosso del gas in Italia: più è basso, meno incide la materia prima gas in bolletta.' : 'Il PUN è il prezzo all’ingrosso dell’energia elettrica in Italia: più è basso, meno costa la materia prima in bolletta.';
+  host.innerHTML = `
+    <div class="hero-main">
+      <div class="hero-num">${eur(ckwh,1)}<span class="hero-unit">c€/kWh</span></div>
+      <div class="hero-meta">
+        <div class="hero-lab">${D().name} medio · ${p.d} ${MESI[p.m]} ${p.y}</div>
+        <div class="hero-sub">${second}</div>
+      </div>
+      ${pill}
+    </div>
+    <div class="hero-ctx">${ctx}</div>`;
+}
 function render(){
   applyAccent(); setActive();
+  renderHero();
   if(view==="forward"){renderForward();return;}
   if(view==="consigli"){renderConsigli();return;}
   const ks=keys();
