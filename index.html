@@ -75,6 +75,7 @@
   .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:12px}
   .legend i{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1px solid rgba(0,0,0,.08)}
   .consbanner{background:#e7f6ec;color:#15803d;border:1px solid #cdeed6;border-radius:10px;padding:11px 14px;font-size:15px;margin-bottom:12px}
+  .consbanner.red{background:#fdecec;color:#b91c1c;border-color:#f5c2c2}
   .moderow{display:flex;gap:8px;margin-bottom:12px}
   .modebtn{flex:1;padding:11px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;cursor:pointer;font-size:15px;font-weight:600;color:var(--txt)}
   .modebtn.on{background:#b45309;border-color:#b45309;color:#fff}
@@ -120,7 +121,7 @@
     <span class="sub">PUN elettrico e Gas PSV ufficiali GME · aggiornati ogni giorno</span>
   </div>
   <span class="hspacer"></span>
-  <span class="updated" id="updated">aggiornato 2026-06-26 14:07</span>
+  <span class="updated" id="updated">aggiornato 2026-06-26 17:28</span>
 </header>
 
 <div class="wrap">
@@ -441,8 +442,8 @@ function renderConsigli(){
   const cal=`<div class="card"><div class="dow">${DOW.map(x=>`<div>${x}</div>`).join("")}</div><div class="grid">${cells}</div><div class="hint">Clicca un giorno per i consigli di consumo di quella data.</div></div>`;
   // Consigli per il giorno scelto
   const prices=ELEC[key],p=parse(key);
-  let mh=0;prices.forEach((v,i)=>{if(v<prices[mh])mh=i;});
-  const ckwh=prices[mh]/10;
+  let mh=0,xh=0;prices.forEach((v,i)=>{if(v<prices[mh])mh=i;if(v>prices[xh])xh=i;});
+  const ckwh=prices[mh]/10,ckwhX=prices[xh]/10;
   let body="";
   if(consMode==="casa"){ body=`<div class="acards">${APP_CASA.map(a=>appCard(a,prices)).join("")}</div>`; }
   else{
@@ -450,7 +451,7 @@ function renderConsigli(){
     const grid=BIZ.map(b=>`<button class="bizbtn ${b.id===biz.id?'on':''}" data-biz="${b.id}">${b.icon} ${b.label}</button>`).join("");
     body=`<div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px">Seleziona il tipo di attività:</div><div class="bizgrid">${grid}</div><div style="font-size:13px;color:#15803d;font-weight:700;margin-bottom:8px">⚙️ Attrezzature consigliate per: ${biz.label}</div><div class="acards">${biz.equip.map(a=>appCard(a,prices)).join("")}</div>`;
   }
-  const advice=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, in base al PUN orario. Stime su potenze tipiche, solo prezzo energia (escluse imposte/oneri).</div>${body}</div>`;
+  const advice=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="consbanner red">🔴 Ora più cara: <b>ore ${String(xh).padStart(2,"0")}:00</b> → ${eur(ckwhX,1)} c€/kWh · riduci i consumi in questa fascia</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, in base al PUN orario. Stime su potenze tipiche, solo prezzo energia (escluse imposte/oneri).</div>${body}</div>`;
   content.innerHTML=cal+`<div style="height:16px"></div>`+advice;
   document.querySelectorAll("[data-cday]").forEach(c=>c.onclick=()=>{selDate=c.dataset.cday;render();});
   document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{consMode=b.dataset.mode;render();});
