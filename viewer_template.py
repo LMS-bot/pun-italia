@@ -412,10 +412,11 @@ function renderYear(){
   const present=out.map((v,i)=>({v,i})).filter(o=>o.v!=null);
   if(!present.length){content.innerHTML=`<div class="card"><div class="empty-note">Nessun dato per il ${cur.y}.</div></div>`;return;}
   const yks=yearKeys(cur.y); const yAvg=D().monthAvg(yks);
-  const vals=present.map(o=>o.v),labels=present.map(o=>MESI[o.i].slice(0,3)),mn=Math.min(...vals),mx=Math.max(...vals);
+  const vals=present.map(o=>o.v),labels=present.map(o=>MESI[o.i].slice(0,3));
+  let lo=present[0],hi=present[0];present.forEach(o=>{if(o.v<lo.v)lo=o;if(o.v>hi.v)hi=o;});
   const sb=domain==="gas"?statGas:statBlock;
   content.innerHTML=`<div class="card"><h3 style="margin:0 0 4px">${D().name} — medie mensili ${cur.y}</h3>
-    <div class="stats">${sb("Media anno",yAvg)}${sb("Mese più basso",mn)}${sb("Mese più alto",mx)}</div>
+    <div class="stats">${sb("Media anno",yAvg)}${sb("Mese più basso · "+MESI[lo.i].slice(0,3),lo.v)}${sb("Mese più alto · "+MESI[hi.i].slice(0,3),hi.v)}</div>
     ${barChart(vals,labels,{})}</div>`;
 }
 function consDay(){if(selDate&&ELEC[selDate])return selDate;const ks=Object.keys(ELEC).sort();return ks.length?ks[ks.length-1]:null;}
