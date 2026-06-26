@@ -237,6 +237,7 @@ const BIZ=[
 ];
 
 let domain="elec", view="day", selDate=null, fwdType="base";
+let consMode="casa", consBiz="ristorante";
 let cur={y:new Date().getFullYear(),m:new Date().getMonth(),d:1};
 
 const content=document.getElementById("content"), navlabel=document.getElementById("navlabel");
@@ -417,7 +418,7 @@ function renderYear(){
     <div class="stats">${sb("Media anno",yAvg)}${sb("Mese più basso",mn)}${sb("Mese più alto",mx)}</div>
     ${barChart(vals,labels,{})}</div>`;
 }
-function consDay(){const ks=Object.keys(ELEC).sort();return ks.length?ks[ks.length-1]:null;}
+function consDay(){if(selDate&&ELEC[selDate])return selDate;const ks=Object.keys(ELEC).sort();return ks.length?ks[ks.length-1]:null;}
 function calcApp(prices,energy){
   const costs=prices.map(p=>energy*p/1000);
   const idx=[...costs.keys()];
@@ -438,9 +439,18 @@ function appCard(a,prices){
   return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div><div class="asave">−${eur(r.risparmio,2)}€<div class="asublab">risparmio/giorno</div></div></div><div class="abest">✅ Migliori ore di accensione:</div><div>${chips}</div><div class="aavoid">🔴 Evita: <b>${String(r.worst).padStart(2,"0")}:00</b> · costa ${eur(r.risparmio,2)}€ in più</div></div>`;
 }
 function renderConsigli(){
-  navlabel.textContent="Consigli di consumo";
+  navlabel.textContent=`${MESI[cur.m]} ${cur.y}`;
   const key=consDay();
   if(!key){content.innerHTML=`<div class="card"><div class="empty-note">Dati PUN non disponibili.</div></div>`;return;}
+  // Calendario sempre visibile (colori semaforo PUN), clic = scegli il giorno
+  const nd=daysInMonth(cur.y,cur.m),fd=(new Date(cur.y,cur.m,1).getDay()+6)%7;let cells="";
+  for(let i=0;i<fd;i++)cells+=`<div class="cell empty"></div>`;
+  for(let d=1;d<=nd;d++){const k=fmt(cur.y,cur.m,d);
+    if(ELEC[k]){const a=avg(ELEC[k]);const sel=(k===key);
+      cells+=`<div class="cell has" style="background:${bandColor(a)}${sel?';outline:3px solid #111;outline-offset:-2px':''}" data-cday="${k}"><div class="d">${d}</div><div><span class="v">${eur(a,1)}</span> <span class="u">€/MWh</span></div></div>`;
+    }else cells+=`<div class="cell"><div class="d">${d}</div></div>`;}
+  const cal=`<div class="card"><div class="dow">${DOW.map(x=>`<div>${x}</div>`).join("")}</div><div class="grid">${cells}</div><div class="hint">Clicca un giorno per i consigli di consumo di quella data.</div></div>`;
+  // Consigli per il giorno scelto
   const prices=ELEC[key],p=parse(key);
   let mh=0;prices.forEach((v,i)=>{if(v<prices[mh])mh=i;});
   const ckwh=prices[mh]/10;
@@ -451,11 +461,13 @@ function renderConsigli(){
     const grid=BIZ.map(b=>`<button class="bizbtn ${b.id===biz.id?'on':''}" data-biz="${b.id}">${b.icon} ${b.label}</button>`).join("");
     body=`<div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px">Seleziona il tipo di attività:</div><div class="bizgrid">${grid}</div><div style="font-size:13px;color:#15803d;font-weight:700;margin-bottom:8px">⚙️ Attrezzature consigliate per: ${biz.label}</div><div class="acards">${biz.equip.map(a=>appCard(a,prices)).join("")}</div>`;
   }
-  content.innerHTML=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, in base al PUN orario. Stime su potenze tipiche, solo prezzo energia (escluse imposte/oneri).</div>${body}</div>`;
+  const advice=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, in base al PUN orario. Stime su potenze tipiche, solo prezzo energia (escluse imposte/oneri).</div>${body}</div>`;
+  content.innerHTML=cal+`<div style="height:16px"></div>`+advice;
+  document.querySelectorAll("[data-cday]").forEach(c=>c.onclick=()=>{selDate=c.dataset.cday;render();});
   document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{consMode=b.dataset.mode;render();});
   document.querySelectorAll("[data-biz]").forEach(b=>b.onclick=()=>{consBiz=b.dataset.biz;render();});
 }
-function step(dir){if(view==="forward"||view==="consigli")return;if(view==="year")cur.y+=dir;else{cur.m+=dir;if(cur.m<0){cur.m=11;cur.y--;}if(cur.m>11){cur.m=0;cur.y++;}}render();}
+function step(dir){if(view==="forward")return;if(view==="year")cur.y+=dir;else{cur.m+=dir;if(cur.m<0){cur.m=11;cur.y--;}if(cur.m>11){cur.m=0;cur.y++;}}render();}
 function renderCerts(){
   if(!CERTS.length)return;
   document.getElementById("certs").style.display="flex";
