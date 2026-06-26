@@ -334,15 +334,28 @@ function renderHero(){
   const p = parse(lk);
   const tr = heroTrend(ks, dv);
   const isUp = tr!=null && tr>0;
-  const pill = tr==null ? '' : `<span class="trendpill ${isUp?'up':'down'}">${isUp?'↗ +':'↘ '}${tr.toFixed(1)}% <small style="font-weight:500">sulla settimana</small></span>`;
-  const second = domain==='gas' ? `${eur(mwh)} €/MWh · ≈ ${eur(mwh*SMC,4)} €/Smc` : `${eur(mwh)} €/MWh`;
-  const ctx = domain==='gas' ? 'Il PSV è il prezzo all’ingrosso del gas in Italia: più è basso, meno incide la materia prima gas in bolletta.' : 'Il PUN è il prezzo all’ingrosso dell’energia elettrica in Italia: più è basso, meno costa la materia prima in bolletta.';
+  const pill = tr==null ? '' :
+    `<span class="trendpill ${isUp?'up':'down'}">${isUp?'↗ +':'↘ '}${tr.toFixed(1)}% <small style="font-weight:500">sulla settimana</small></span>`;
+  let bigVal, bigUnit, sub, lab;
+  if(domain==='gas'){
+    const smc = mwh*SMC;
+    bigVal = eur(smc,4);  bigUnit = '€/Smc';
+    sub = `${eur(mwh)} €/MWh · ≈ ${eur(ckwh,1)} c€/kWh`;
+    lab = `${D().name} · ${p.d} ${MESI[p.m]} ${p.y}`;
+  } else {
+    bigVal = eur(ckwh,1); bigUnit = 'c€/kWh';
+    sub = `${eur(mwh)} €/MWh`;
+    lab = `${D().name} medio · ${p.d} ${MESI[p.m]} ${p.y}`;
+  }
+  const ctx = domain==='gas'
+    ? 'Il PSV è il prezzo all’ingrosso del gas in Italia: più è basso, meno incide la materia prima gas in bolletta.'
+    : 'Il PUN è il prezzo all’ingrosso dell’energia elettrica in Italia: più è basso, meno costa la materia prima in bolletta.';
   host.innerHTML = `
     <div class="hero-main">
-      <div class="hero-num">${eur(ckwh,1)}<span class="hero-unit">c€/kWh</span></div>
+      <div class="hero-num">${bigVal}<span class="hero-unit">${bigUnit}</span></div>
       <div class="hero-meta">
-        <div class="hero-lab">${D().name} medio · ${p.d} ${MESI[p.m]} ${p.y}</div>
-        <div class="hero-sub">${second}</div>
+        <div class="hero-lab">${lab}</div>
+        <div class="hero-sub">${sub}</div>
       </div>
       ${pill}
     </div>
