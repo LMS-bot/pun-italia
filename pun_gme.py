@@ -461,13 +461,21 @@ def main(argv=None):
     # il PUN di domani appena è disponibile.
     el = load_el(args.csv)
     date_label, recs = None, None
-    for d in (date, date + timedelta(days=1)):
+    # Finestra anti-buchi: ultimi 7 giorni + domani (day-ahead).
+    # I giorni passati gia' completi vengono saltati; oggi e domani si
+    # riscaricano sempre, cosi' si recuperano anche pubblicazioni in ritardo
+    # o giorni persi per un run fallito.
+    window = sorted({date + timedelta(days=1)} | {date - timedelta(days=i) for i in range(7)})
+    for d in window:
+        lbl = d.strftime("%Y-%m-%d")
+        if d.date() < date.date() and len(el.get(lbl, [])) >= 23:
+            continue  # giorno passato gia' completo
         try:
-            lbl, r = fetch_el(d)
-            el[lbl] = [p for _, p in r]
-            date_label, recs = lbl, r  # l'ultimo disponibile diventa il "principale"
+            lbl2, r = fetch_el(d)
+            el[lbl2] = [p for _, p in r]
+            date_label, recs = lbl2, r  # l'ultimo disponibile diventa il "principale"
         except Exception as exc:  # noqa: BLE001
-            log.info("PUN %s non ancora disponibile: %s", d.strftime("%Y-%m-%d"), exc)
+            log.info("PUN %s non ancora disponibile: %s", lbl, exc)
     if recs is None:
         raise RuntimeError("Nessun PUN disponibile per oggi né domani.")
     save_el(args.csv, el)
