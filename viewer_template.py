@@ -250,8 +250,8 @@ const APP_CASA=[
  {n:"Ricarica bici / scooter elettrico",ic:"🛵",energy:1.5,label:"1.5 kWh ricarica"},
  {n:"Carica accumulo fotovoltaico",ic:"🔋",energy:5,label:"5 kWh carica batteria"},
  {n:"Robot aspirapolvere (ricarica)",ic:"🤖",energy:0.5,label:"0.5 kWh ricarica"},
- {n:"Frigorifero",ic:"🧊",kw:0.15,continuous:true,label:"0.15 kW · funzionamento continuo"},
- {n:"Congelatore",ic:"❄️",kw:0.2,continuous:true,label:"0.2 kW · funzionamento continuo"}
+ {n:"Frigorifero",ic:"🧊",kwhAnno:160,continuous:true,label:"circa 160 kWh all'anno · sempre acceso"},
+ {n:"Congelatore",ic:"❄️",kwhAnno:200,continuous:true,label:"circa 200 kWh all'anno · sempre acceso"}
 ];
 const BIZ=[
  {id:"ristorante",label:"Ristorante / Bar",icon:"🍽️",equip:[
@@ -623,8 +623,12 @@ function calcApp(prices,energy){
 const NOTA_COSTI=`<div class="notaprezzi"><b>ℹ️ Come leggere questi importi.</b> Le cifre indicate rappresentano il costo della <b>sola materia prima energia</b>, cioè il prezzo dell\u2019elettricità all\u2019ingrosso (PUN) nell\u2019ora indicata. Il costo effettivo che troverai <b>in bolletta</b> per lo stesso consumo sarà <b>più alto</b>: a questo importo vanno infatti aggiunti i cosiddetti <b>costi passanti</b> definiti da ARERA — spese di trasporto e gestione del contatore, oneri di sistema, imposte e IVA — oltre agli eventuali costi di commercializzazione previsti dal tuo contratto.<br><br>Questi valori servono quindi a <b>confrontare le ore tra loro</b> e capire <b>quando conviene consumare</b>, non a stimare l\u2019importo finale della bolletta.</div>`;
 function appCard(a,prices){
   if(a.continuous){
-    const daily=a.kw*prices.reduce((s,p)=>s+p,0)/1000;
-    return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div></div><div class="acont">⚠️ Funzionamento continuo H24 — non programmabile</div><div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">Costo stimato giornaliero</span><b style="font-size:17px">${eur(daily,2)}€</b></div></div>`;
+    const kw=(a.kwhAnno!=null)?a.kwhAnno/8760:a.kw;
+    const daily=kw*prices.reduce((s,p)=>s+p,0)/1000;
+    const nota=(a.kwhAnno!=null)
+      ? `\u2139\ufe0f Resta acceso 24 ore su 24, quindi non puoi spostarlo in un\u2019ora pi\u00f9 conveniente. Il consumo indicato \u00e8 una media annua: <b>d\u2019estate sar\u00e0 pi\u00f9 alto</b> (il motore lavora di pi\u00f9 con il caldo) e <b>d\u2019inverno pi\u00f9 basso</b>. Per spendere meno conviene agire sull\u2019apparecchio: temperatura corretta, sbrinamento, guarnizioni integre, aria libera dietro.`
+      : `\u26a0\ufe0f Funzionamento continuo H24 \u2014 non programmabile`;
+    return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div></div><div class="acont">${nota}</div><div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">Costo stimato in un giorno</span><b style="font-size:17px">${eur(daily,2)}€</b></div><div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">Costo stimato in un anno (a questo prezzo)</span><b style="font-size:14px">${eur(daily*365,0)}€</b></div></div>`;
   }
   const energy=(a.energy!=null)?a.energy:a.kw*a.h;
   const r=calcApp(prices,energy);
