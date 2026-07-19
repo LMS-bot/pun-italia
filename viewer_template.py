@@ -104,10 +104,21 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .asub{font-size:12px;color:var(--muted);margin-top:2px}
   .asave{color:#15803d;font-weight:800;font-size:19px;text-align:right;white-space:nowrap}
   .asublab{font-size:11px;color:var(--muted);font-weight:500}
-  .abest{margin-top:10px;font-size:13px;color:#15803d}
+  .abest{margin-top:12px;font-size:13px;font-weight:700;color:#15803d}
   .chip{display:inline-block;background:#e7f6ec;color:#15803d;border-radius:8px;padding:4px 9px;margin:4px 5px 0 0;font-weight:600}
+  .arow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+        background:#f2fbf5;border:1px solid #dcf0e3;border-radius:9px;padding:8px 11px;margin-top:6px;font-size:14px;color:#14532d}
+  .arow.top{background:#e2f7e9;border-color:#bfe8cd}
+  .arow .ah{font-weight:600}
+  .arow .ac{white-space:nowrap}
+  .arow em{font-style:normal;font-size:12px;color:#15803d;font-weight:700}
+  .aavoidbox{margin-top:11px;background:#fdecec;border:1px solid #f5c2c2;border-radius:9px;
+             padding:9px 11px;font-size:14px;color:#8f1d1d;line-height:1.5}
   .aavoid{margin-top:9px;font-size:13px;color:#b91c1c}
   .aavoid b{background:#fdecec;color:#b91c1c;border-radius:7px;padding:2px 8px}
+  .notaprezzi{margin-top:16px;background:#f7f9fc;border:1px solid var(--line);border-left:4px solid #94a3b8;
+              border-radius:10px;padding:12px 14px;font-size:13px;color:#475569;line-height:1.6}
+  .notaprezzi b{color:#334155}
   .acont{margin-top:10px;font-size:12px;color:var(--muted);background:var(--chip);border-radius:10px;padding:8px 10px}
   table{border-collapse:separate;border-spacing:0;width:100%;margin-top:14px;font-size:13px;
     border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
@@ -609,6 +620,7 @@ function calcApp(prices,energy){
   const minCost=Math.min(...best.map(i=>costs[i]));
   return {costs,best,worst,risparmio:costs[worst]-minCost};
 }
+const NOTA_COSTI=`<div class="notaprezzi"><b>ℹ️ Come leggere questi importi.</b> Le cifre indicate rappresentano il costo della <b>sola materia prima energia</b>, cioè il prezzo dell\u2019elettricità all\u2019ingrosso (PUN) nell\u2019ora indicata. Il costo effettivo che troverai <b>in bolletta</b> per lo stesso consumo sarà <b>più alto</b>: a questo importo vanno infatti aggiunti i cosiddetti <b>costi passanti</b> definiti da ARERA — spese di trasporto e gestione del contatore, oneri di sistema, imposte e IVA — oltre agli eventuali costi di commercializzazione previsti dal tuo contratto.<br><br>Questi valori servono quindi a <b>confrontare le ore tra loro</b> e capire <b>quando conviene consumare</b>, non a stimare l\u2019importo finale della bolletta.</div>`;
 function appCard(a,prices){
   if(a.continuous){
     const daily=a.kw*prices.reduce((s,p)=>s+p,0)/1000;
@@ -616,8 +628,11 @@ function appCard(a,prices){
   }
   const energy=(a.energy!=null)?a.energy:a.kw*a.h;
   const r=calcApp(prices,energy);
-  const chips=r.best.map(i=>`<span class="chip">${String(i).padStart(2,"0")}:00 ~${eur(r.costs[i],2)}€</span>`).join("");
-  return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div><div class="asave">−${eur(r.risparmio,2)}€<div class="asublab">risparmio/giorno</div></div></div><div class="abest">✅ Migliori ore di accensione:</div><div>${chips}</div><div class="aavoid">🔴 Evita: <b>${String(r.worst).padStart(2,"0")}:00</b> · costa ${eur(r.risparmio,2)}€ in più</div></div>`;
+  const HH=i=>String(i).padStart(2,"0")+":00";
+  const top=r.best.reduce((m,i)=>r.costs[i]<r.costs[m]?i:m,r.best[0]);
+  const rows=r.best.map(i=>`<div class="arow${i===top?" top":""}"><span class="ah">Se lo usi alle ${HH(i)}</span><span class="ac">spendi circa <b>${eur(r.costs[i],2)} €</b>${i===top?' <em>· l\u2019ora migliore</em>':""}</span></div>`).join("");
+  const avoid=`<div class="aavoidbox">🔴 <b>Evita le ${HH(r.worst)}</b>: alla stessa ora lo stesso utilizzo ti costerebbe <b>${eur(r.costs[r.worst],2)} €</b>, cioè <b>${eur(r.risparmio,2)} € in più</b> rispetto alle ${HH(top)}.</div>`;
+  return `<div class="acard"><div class="ahead"><div><span class="aic">${a.ic}</span><b>${a.n}</b><div class="asub">${a.label}</div></div><div class="asave">−${eur(r.risparmio,2)}€<div class="asublab">risparmi al giorno</div></div></div><div class="abest">✅ Quando conviene usarlo</div>${rows}${avoid}</div>`;
 }
 function renderConsigli(){
   navlabel.textContent=`${MESI[cur.m]} ${cur.y}`;
@@ -642,7 +657,7 @@ function renderConsigli(){
     const grid=BIZ.map(b=>`<button class="bizbtn ${b.id===biz.id?'on':''}" data-biz="${b.id}">${b.icon} ${b.label}</button>`).join("");
     body=`<div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px">Seleziona il tipo di attività:</div><div class="bizgrid">${grid}</div><div style="font-size:13px;color:#15803d;font-weight:700;margin-bottom:8px">⚙️ Attrezzature consigliate per: ${biz.label}</div><div class="acards">${biz.equip.map(a=>appCard(a,prices)).join("")}</div>`;
   }
-  const advice=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="consbanner red">🔴 Ora più cara: <b>ore ${String(xh).padStart(2,"0")}:00</b> → ${eur(ckwhX,1)} c€/kWh · riduci i consumi in questa fascia</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, in base al PUN orario. Stime su potenze tipiche, solo prezzo energia (escluse imposte/oneri).</div>${body}</div>`;
+  const advice=`<div class="card"><div class="consbanner">💚 Ora più conveniente: <b>ore ${String(mh).padStart(2,"0")}:00</b> → ${eur(ckwh,1)} c€/kWh</div><div class="consbanner red">🔴 Ora più cara: <b>ore ${String(xh).padStart(2,"0")}:00</b> → ${eur(ckwhX,1)} c€/kWh · riduci i consumi in questa fascia</div><div class="moderow"><button class="modebtn ${consMode==="casa"?"on":""}" data-mode="casa">🏠 Casa</button><button class="modebtn ${consMode==="azienda"?"on":""}" data-mode="azienda">🏢 Azienda</button></div><div class="hint" style="margin-top:0;margin-bottom:10px">Consigli per <b>${p.d} ${MESI[p.m]} ${p.y}</b>, calcolati sul prezzo PUN ora per ora. Gli importi sono stime su potenze medie di apparecchi tipici.</div>${body}${NOTA_COSTI}</div>`;
   content.innerHTML=cal+`<div style="height:16px"></div>`+advice;
   document.querySelectorAll("[data-cday]").forEach(c=>c.onclick=()=>{selDate=c.dataset.cday;render();});
   document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{consMode=b.dataset.mode;render();});
