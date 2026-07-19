@@ -477,12 +477,21 @@ def main(argv=None):
     gas_today = None
     try:
         sg, hg = open_gas()
-        g = get_gas_session(sg, hg, date)
-        for dd, pr in g.items():
+        # Legge le ULTIME 7 SESSIONI: gli esiti gas possono essere pubblicati
+        # più tardi del run giornaliero (o mancare nel weekend), così si
+        # recuperano comunque i giorni arretrati. Dal più vecchio al più
+        # recente, così la sessione più fresca prevale.
+        merged = {}
+        for i in range(6, -1, -1):
+            try:
+                merged.update(get_gas_session(sg, hg, date - timedelta(days=i)))
+            except Exception as exc:  # noqa: BLE001
+                log.debug("Gas sessione -%dg non disponibile: %s", i, exc)
+        for dd, pr in merged.items():
             gas[dd] = pr
-        if g:
-            last = sorted(g)[-1]
-            gas_today = (last, g[last])
+        if merged:
+            last = sorted(merged)[-1]
+            gas_today = (last, merged[last])
         save_gas(args.gas_csv, gas)
     except Exception as exc:  # noqa: BLE001
         log.warning("Gas non aggiornato: %s", exc)
