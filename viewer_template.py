@@ -248,7 +248,6 @@ const APP_CASA=[
  {n:"Pompa piscina / irrigazione",ic:"🏊",kw:0.75,h:4,label:"0.75 kW · uso ~4h/giorno"},
  {n:"Carica auto elettrica",ic:"🚗",energy:10,label:"10 kWh ricarica"},
  {n:"Ricarica bici / scooter elettrico",ic:"🛵",energy:1.5,label:"1.5 kWh ricarica"},
- {n:"Carica accumulo fotovoltaico",ic:"🔋",energy:5,label:"5 kWh carica batteria"},
  {n:"Robot aspirapolvere (ricarica)",ic:"🤖",energy:0.5,label:"0.5 kWh ricarica"},
  {n:"Frigorifero",ic:"🧊",kwhAnno:160,continuous:true,label:"circa 160 kWh all'anno · sempre acceso"},
  {n:"Congelatore",ic:"❄️",kwhAnno:200,continuous:true,label:"circa 200 kWh all'anno · sempre acceso"}
