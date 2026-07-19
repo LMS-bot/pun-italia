@@ -263,9 +263,9 @@ def make_chart(recs, date_label, path):
 # Forward / Futures (curva da prezzi di controllo GME = settlement)
 # --------------------------------------------------------------------------- #
 def _latest_session(page, service, params_fn, ref):
-    """Trova l'ultima sessione (entro 8 giorni) che restituisce dati. -> (date, list)."""
+    """Trova l'ultima sessione (entro 15 giorni) che restituisce dati. -> (date, list)."""
     s, h = _open(page)
-    for i in range(8):
+    for i in range(15):
         d = ref - timedelta(days=i)
         try:
             r = s.get(service, headers=h, params=params_fn(d), timeout=TIMEOUT)

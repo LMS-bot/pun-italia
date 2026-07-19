@@ -45,9 +45,12 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .dom.elec.active{border-color:var(--elec);box-shadow:inset 0 0 0 1px var(--elec)}
   .dom.gas.active{border-color:var(--gas);box-shadow:inset 0 0 0 1px var(--gas)}
   .dom.active{background:var(--panel2)}
-  .tabs{display:flex;gap:8px;margin:0 0 16px}
-  .tab{padding:8px 15px;border:1px solid var(--line);background:var(--panel);color:var(--txt);
-    border-radius:9px;cursor:pointer;font-size:14px}
+  .tabs{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap;align-items:stretch}
+  .tab{padding:9px 14px;border:1px solid var(--line);background:var(--panel);color:var(--txt);
+    border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:600;line-height:1.25;
+    max-width:330px;white-space:normal;display:flex;flex-direction:column;justify-content:center}
+  .tab small{display:block;font-weight:400;font-size:11px;color:var(--muted);margin-top:3px}
+  .tab.active small{color:#0b2a16;opacity:.85}
   .tab.active{background:var(--accent);border-color:var(--accent);color:#08121d;font-weight:700}
   .nav{display:flex;align-items:center;gap:12px;margin-bottom:14px}
   .nav button{background:var(--panel);border:1px solid var(--line);color:var(--txt);
@@ -106,10 +109,15 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .aavoid{margin-top:9px;font-size:13px;color:#b91c1c}
   .aavoid b{background:#fdecec;color:#b91c1c;border-radius:7px;padding:2px 8px}
   .acont{margin-top:10px;font-size:12px;color:var(--muted);background:var(--chip);border-radius:10px;padding:8px 10px}
-  table{border-collapse:collapse;width:100%;margin-top:14px;font-size:13px}
-  th,td{border:1px solid var(--line);padding:5px 8px;text-align:right}
+  table{border-collapse:separate;border-spacing:0;width:100%;margin-top:14px;font-size:13px;
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+  th,td{border:0;border-bottom:1px solid var(--line);padding:9px 12px;text-align:right}
   th:first-child,td:first-child{text-align:left}
-  th{color:var(--muted);font-weight:600;background:var(--panel2)}
+  th{color:var(--muted);font-weight:700;background:var(--panel2);font-size:11.5px;
+    text-transform:uppercase;letter-spacing:.04em}
+  tbody tr:nth-child(even) td{background:#fafcfe}
+  tbody tr:hover td{background:#eef4fb}
+  tbody tr:last-child td{border-bottom:0}
   .empty-note{color:var(--muted);padding:30px;text-align:center}
   .bigprice{font-size:40px;font-weight:800;margin:6px 0}
   /* ---------- certificazioni + footer ---------- */
@@ -180,10 +188,10 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   </div>
   <div class="tabs">
     <div class="tab active" data-view="day">📅 Giorno</div>
-    <div class="tab" data-view="month">📊 Mese</div>
+    <div class="tab" data-view="month">📊 Mese corrente · prezzi medi giornalieri</div>
     <div class="tab" data-view="year">📈 Anno</div>
-    <div class="tab" data-view="forward">🔮 Forward</div>
-    <div class="tab" data-view="consigli">💡 Consigli</div>
+    <div class="tab" data-view="forward">🔮 Previsionale Forward</div>
+    <div class="tab" data-view="consigli">💡 Orari giornalieri consigliati per l'uso consapevole di energia in casa o al lavoro<small>Se hai una tariffa al PUN, risparmia cambiando il modo di consumare</small></div>
   </div>
   <div class="nav"><button id="prev">‹</button><div class="label" id="navlabel"></div><button id="next">›</button></div>
   <div id="content"></div>
