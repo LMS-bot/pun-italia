@@ -97,6 +97,11 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
   .bizgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-bottom:12px}
   .bizbtn{padding:11px 12px;border:1px solid var(--line);background:var(--panel);border-radius:10px;cursor:pointer;font-size:14px;color:var(--txt);text-align:center}
   .bizbtn.on{background:#b45309;border-color:#b45309;color:#fff;font-weight:700}
+  .bar.go{cursor:pointer}
+  .bar.go:hover{filter:brightness(1.08);outline:2px solid rgba(0,0,0,.35);outline-offset:-2px}
+  .fasceleg{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:12px}
+  .fasceleg>div{background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#475569;line-height:1.5}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
   .acards{display:flex;flex-direction:column;gap:12px;margin-top:6px}
   .acard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff}
   .ahead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -535,7 +540,10 @@ function barChart(values,labels,opts={}){
   const max=Math.max(...values,0),min=Math.min(...values,0),span=(max-min)||1;let bars="",xs="";
   values.forEach((v,i)=>{const h=Math.max(2,((v-min)/span)*100);
     const bg=opts.band?`;background:${bandColor(v)}`:"";
-    bars+=`<div class="bar" style="height:${h}%${bg}"><span class="tip">${labels[i]}: ${eur(v)} ${D().unit}</span></div>`;
+    const go=opts.keys?` data-goday="${opts.keys[i]}"`:"";
+    const cls=opts.keys?"bar go":"bar";
+    const extra=opts.keys?" · clicca per le 24 ore":"";
+    bars+=`<div class="${cls}" style="height:${h}%${bg}"${go}><span class="tip">${labels[i]}: ${eur(v)} ${D().unit}${extra}</span></div>`;
     xs+=`<div>${opts.xevery?(i%opts.xevery===0?labels[i]:""):labels[i]}</div>`;});
   return `<div class="bars">${bars}</div><div class="xlabels">${xs}</div>`;
 }
@@ -546,6 +554,53 @@ function statGas(label,mwh){return `<div class="stat"><div class="k">${label}</d
   <div class="val">${eur(mwh)} <small>€/MWh</small></div>
   <div class="val" style="font-size:14px">≈ ${eur(mwh*SMC,4)} <small>€/Smc</small></div></div>`;}
 
+function pasquetta(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),
+        g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+        l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  const p=new Date(y,mo-1,da); p.setDate(p.getDate()+1); return p;
+}
+const FESTIVI=["1-1","1-6","4-25","5-1","6-2","8-15","11-1","12-8","12-25","12-26"];
+function isFestivo(dt){
+  if(FESTIVI.indexOf((dt.getMonth()+1)+"-"+dt.getDate())>=0)return true;
+  const pq=pasquetta(dt.getFullYear());
+  return pq.getMonth()===dt.getMonth()&&pq.getDate()===dt.getDate();
+}
+// Fasce ARERA (ora solare/legale come da delibera): F1 lun-ven 8-19; F2 lun-ven 7-8 e 19-23,
+// sab 7-23; F3 tutte le altre ore + domeniche e festivi.
+function fascia(dt,h){
+  const dow=dt.getDay();
+  if(dow===0||isFestivo(dt))return "F3";
+  if(dow===6)return (h>=7&&h<=22)?"F2":"F3";
+  if(h>=8&&h<=18)return "F1";
+  if(h===7||(h>=19&&h<=22))return "F2";
+  return "F3";
+}
+function fasceAvg(ks){
+  const sum={F1:0,F2:0,F3:0},cnt={F1:0,F2:0,F3:0};
+  ks.forEach(k=>{const pr=ELEC[k]; if(!pr)return; const p=parse(k); const dt=new Date(p.y,p.m,p.d);
+    pr.forEach((v,h)=>{const f=fascia(dt,h); sum[f]+=v; cnt[f]++;});});
+  return {F1:cnt.F1?sum.F1/cnt.F1:null,F2:cnt.F2?sum.F2/cnt.F2:null,F3:cnt.F3?sum.F3/cnt.F3:null};
+}
+function fasceTable(year,present){
+  const cell=v=>v==null?'<td class="num">\u2014</td>':`<td class="num" style="background:${bandColor(v)}"><b>${eur(v)}</b><div style="font-size:11px;opacity:.75">${eur(v/10,1)} c\u20ac/kWh</div></td>`;
+  let rows="";
+  present.forEach(o=>{
+    const ks=monthKeys(year,o.i), f=fasceAvg(ks);
+    rows+=`<tr><td><b>${MESI[o.i]}</b></td>${cell(f.F1)}${cell(f.F2)}${cell(f.F3)}${cell(o.v)}</tr>`;
+  });
+  const tot=fasceAvg(yearKeys(year));
+  rows+=`<tr style="font-weight:800"><td>Media ${year}</td>${cell(tot.F1)}${cell(tot.F2)}${cell(tot.F3)}${cell(D().monthAvg(yearKeys(year)))}</tr>`;
+  return `<div class="card"><h3 style="margin:0 0 4px">PUN medio per fascia oraria \u2014 ${year}</h3>
+    <div class="hint" style="margin-top:0">Valori in \u20ac/MWh. Le fasce sono quelle definite da ARERA e usate nelle bollette a prezzo variabile.</div>
+    <table><thead><tr><th>Mese</th><th>F1 <span style="font-weight:400">ore di punta</span></th><th>F2 <span style="font-weight:400">intermedie</span></th><th>F3 <span style="font-weight:400">fuori punta</span></th><th>Media mese</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="fasceleg">
+      <div><b>F1 \u2014 ore di punta</b><br>Da luned\u00ec a venerd\u00ec, dalle 8:00 alle 19:00. Esclusi i giorni festivi.</div>
+      <div><b>F2 \u2014 ore intermedie</b><br>Da luned\u00ec a venerd\u00ec dalle 7:00 alle 8:00 e dalle 19:00 alle 23:00; il sabato dalle 7:00 alle 23:00.</div>
+      <div><b>F3 \u2014 fuori punta</b><br>Tutte le notti dalle 23:00 alle 7:00, pi\u00f9 l\u2019intera giornata di domenica e dei festivi. \u00c8 di norma la fascia pi\u00f9 economica.</div>
+    </div></div>`;
+}
 function renderDay(){
   navlabel.textContent=`${MESI[cur.m]} ${cur.y}`;
   const dv=D().dayVal;
@@ -594,7 +649,12 @@ function renderMonth(){
   content.innerHTML=`<div class="card"><h3 style="margin:0 0 4px">${D().name} — medie giornaliere ${MESI[cur.m]} ${cur.y}</h3>
     <div class="stats">${sb("Media mese",mAvg)}${sb("Giorno più basso · "+parse(ks[miI]).d+" "+mese3,dayVals[miI])}${sb("Giorno più alto · "+parse(ks[maI]).d+" "+mese3,dayVals[maI])}
     <div class="stat"><div class="k">Giorni</div><div class="val">${ks.length}</div></div></div>
-    ${barChart(dayVals,labels,{xevery:2})}</div>`;
+    ${barChart(dayVals,labels,{xevery:2,keys:ks})}
+    <div class="hint">💡 Clicca su una barra per aprire quel giorno e vedere l\u2019andamento ora per ora.</div></div>`;
+  document.querySelectorAll("[data-goday]").forEach(b=>b.onclick=()=>{
+    selDate=b.dataset.goday; const pp=parse(selDate); cur={y:pp.y,m:pp.m,d:pp.d};
+    view="day"; render(); window.scrollTo({top:0,behavior:"smooth"});
+  });
 }
 function renderYear(){
   navlabel.textContent=`${cur.y}`;
@@ -607,7 +667,7 @@ function renderYear(){
   const sb=domain==="gas"?statGas:statBlock;
   content.innerHTML=`<div class="card"><h3 style="margin:0 0 4px">${D().name} — medie mensili ${cur.y}</h3>
     <div class="stats">${sb("Media anno",yAvg)}${sb("Mese più basso · "+MESI[lo.i].slice(0,3),lo.v)}${sb("Mese più alto · "+MESI[hi.i].slice(0,3),hi.v)}</div>
-    ${barChart(vals,labels,{})}</div>`;
+    ${barChart(vals,labels,{})}</div>` + (domain==="elec"?`<div style="height:16px"></div>`+fasceTable(cur.y,present):"");
 }
 function consDay(){if(selDate&&ELEC[selDate])return selDate;const ks=Object.keys(ELEC).sort();return ks.length?ks[ks.length-1]:null;}
 function calcApp(prices,energy){
