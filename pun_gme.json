@@ -1,7 +1,7 @@
 {
   "data": "2026-07-20",
   "fonte": "GME mercatoelettrico.org — MGP (PUN ufficiale) + MGP-GAS (PSV)",
-  "aggiornato_il": "2026-07-19T14:36:29.551423+00:00",
+  "aggiornato_il": "2026-07-20T06:22:08.931980+00:00",
   "pun_ore": 24,
   "pun_orari_eur_mwh": [
     174.34,
@@ -58,5 +58,5 @@
   "pun_media_eur_mwh": 172.56,
   "pun_media_eur_kwh": 0.17256,
   "gas_psv_data": "2026-07-20",
-  "gas_psv_eur_mwh": 61.87
+  "gas_psv_eur_mwh": 63.24
 }
